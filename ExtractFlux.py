@@ -9,7 +9,8 @@ import os
 import re
 
 def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
-    starname = str(re.search('[0-9]{9}',filepath).group(0))+"_spd"
+    print "Adaptive Aperture"
+    starname = str(re.search('[0-9]{9}',filepath).group(0))
     if "spd" in filepath:
       starname = starname+"_spd"
 
@@ -32,22 +33,17 @@ def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
     RA = FitsFile[0].header['RA_OBJ']
     Dec = FitsFile[0].header['DEC_OBJ']
     KepMag = FitsFile[0].header['Kepmag']
+
+
     print "Magnitude::",KepMag
     Xabs = FitsFile[2].header['CRVAL2P'] # X position of pixel on kepler spacecraft
     Yabs = FitsFile[2].header['CRVAL1P']
 
     #Doing median stack again average
-    '''
-    SumFlux = np.nansum(TotalFlux, axis=0)
-    SumFlux[np.isnan(SumFlux)] = 0
-    AvgFlux = SumFlux/len(TotalFlux)
-    '''
-
     AvgFlux = np.nanmedian(TotalFlux, axis=0)
+    AvgFlux[np.isnan(AvgFlux)] = 0
 
-
-
-
+    #initiating array to collect values
     FluxArray = []
     DateArray = []
     XArray = []
@@ -57,7 +53,10 @@ def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
 
 
     #Find Background Value
-    ExpectedFluxUnder = 400.0
+    if "spd" in filepath:
+      ExpectedFluxUnder = 100.0
+    else:
+      ExpectedFluxUnder = 400.0
 
     #find a standard Aperture
     StdAper = 1.0*(AvgFlux>ExpectedFluxUnder)
@@ -146,7 +145,8 @@ def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
 
 
 def AdaptiveAperture(filepath='',outputpath='',campaign='',plot=False):
-    starname = str(re.search('[0-9]{9}',filepath).group(0))+"_spd"
+    print "Adaptive Aperture"
+    starname = str(re.search('[0-9]{9}',filepath).group(0))
     if "spd" in filepath:
       starname = starname+"_spd"
 
@@ -176,9 +176,10 @@ def AdaptiveAperture(filepath='',outputpath='',campaign='',plot=False):
     Yabs = FitsFile[2].header['CRVAL1P']
 
     #Doing median stack again average
-    AvgFlux[np.isnan(AvgFlux)] = 0
     AvgFlux = np.nanmedian(TotalFlux, axis=0)
+    AvgFlux[np.isnan(AvgFlux)] = 0
 
+    #initiating array to collect values
     FluxArray = []
     DateArray = []
     XArray = []
@@ -188,7 +189,10 @@ def AdaptiveAperture(filepath='',outputpath='',campaign='',plot=False):
 
 
     #Find Background Value
-    ExpectedFluxUnder = 400.0
+    if "spd" in filepath:
+      ExpectedFluxUnder = 100.0
+    else:
+      ExpectedFluxUnder = 400.0
 
     #find a standard Aperture
     StdAper = 1.0*(AvgFlux>ExpectedFluxUnder)

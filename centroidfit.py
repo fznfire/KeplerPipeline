@@ -249,9 +249,7 @@ def sff_fit(time,data,Xc,Yc,starname='',outputpath='',chunksize=300, niter = 10,
   #
   # Fit a polynomial to the data and return corrected data
   #
-
   outputfolder = os.path.join(outputpath,str(starname))
-
   # Remove NaN etc.
   time = np.array(time)[np.array(time) > 0.]
   data = np.array(data)[np.array(time) > 0.]

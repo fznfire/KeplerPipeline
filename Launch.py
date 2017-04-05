@@ -32,7 +32,7 @@ if len(SelectedStars)>0:
     filepaths = LimitByEpic(filepaths, SelectedStars)
 
 #filepaths = ["/home/pniraula/Downloads/ktwo201577035-c01_lpd-targ.fits"]
-#filepaths = ["/Volumes/westep/prajwal/Campaign5/ktwo211719918-c05_spd-targ.fits"]
+filepaths = ["/Volumes/westep/prajwal/Campaign5/ktwo211719918-c05_spd-targ.fits"]
 #filepaths = ["/Volumes/westep/prajwal/Campaign8/ktwo220717512-c08_lpd-targ.fits"]
 i = 0
 exc_list = []

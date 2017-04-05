@@ -252,8 +252,5 @@ def make_combo_figure(filepath,t,f_t,period,freqs,power,starname='',outputpath='
   if not os.path.exists(outputfigfolder):
     os.makedirs(outputfigfolder)
 
-  #making accomodation for spd and lpd
-  if "spd" in filepath:
-     pl.savefig(os.path.join(outputfigfolder, 'combo_' + 'star_' + str(starname) + '.png'),figsize=(10.,20.))
-  else:
-     pl.savefig(os.path.join(outputfigfolder, 'combo_' + 'star_' + str(starname) + '.png'),figsize=(10.,20.))
+  #Saving the figure
+  pl.savefig(os.path.join(outputfigfolder, 'combo_' + 'star_' + str(starname) + '.png'),figsize=(10.,20.))

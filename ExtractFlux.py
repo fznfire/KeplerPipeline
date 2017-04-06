@@ -9,7 +9,6 @@ import os
 import re
 
 def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
-    print "Adaptive Aperture"
     starname = str(re.search('[0-9]{9}',filepath).group(0))
     if "spd" in filepath:
       starname = starname+"_spd"
@@ -24,20 +23,14 @@ def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
 
     #extract the vital information from the fits file
     KeplerID = FitsFile[0].header['KEPLERID']
-    print "KEPLERID", KeplerID
     TotalDate = FitsFile[1].data['Time']
     TotalFlux = FitsFile[1].data['Flux']
-
-    ArrayLength = len(TotalFlux)
     Quality = FitsFile[1].data['Quality']
     RA = FitsFile[0].header['RA_OBJ']
     Dec = FitsFile[0].header['DEC_OBJ']
     KepMag = FitsFile[0].header['Kepmag']
-
-
-    print "Magnitude::",KepMag
     Xabs = FitsFile[2].header['CRVAL2P'] # X position of pixel on kepler spacecraft
-    Yabs = FitsFile[2].header['CRVAL1P']
+    Yabs = FitsFile[2].header['CRVAL1P'] # Y position of pixel on kepler spacecraft
 
     #Doing median stack again average
     AvgFlux = np.nanmedian(TotalFlux, axis=0)
@@ -51,12 +44,11 @@ def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
     BkgMeanArray = []
 
 
-
     #Find Background Value
     if "spd" in filepath:
       ExpectedFluxUnder = 100.0
     else:
-      ExpectedFluxUnder = 400.0
+      ExpectedFluxUnder = 400.0 #This value is arbitrarily choosen, and works for most stars
 
     #find a standard Aperture
     StdAper = 1.0*(AvgFlux>ExpectedFluxUnder)
@@ -65,6 +57,17 @@ def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
     StdAper = area[lw].astype(int) # this replaces the 1s by the size of the aperture
     StdAper = (StdAper >= np.max(StdAper))*1 #make the standard aperture as 1.0
 
+    #Check if the Aperture is too large
+    if np.sum(StdAper)>(0.85*len(AvgFlux[0])*len(AvgFlux)):
+        print "The traditional flux did not work."
+        ExpectedFluxUnder = 2*np.median(AvgFlux)
+        StdAper = 1.0*(AvgFlux>ExpectedFluxUnder)
+        lw, num = measurements.label(StdAper) # this numbers the different apertures distinctly
+        area = measurements.sum(StdAper, lw, index=np.arange(lw.max() + 1)) # this measures the size of the apertures
+        StdAper = area[lw].astype(int) # this replaces the 1s by the size of the aperture
+        StdAper = (StdAper >= np.max(StdAper))*1 #make the standard aperture as 1.0
+        if np.sum(StdAper)>(0.85*len(AvgFlux[0])*len(AvgFlux)):
+          raise Exception('Error in finding Aperture. Maximum pixel value is ' + str(np.max(AvgFlux)))
 
     #Estimating the background
     BkgAper = 1.0 - StdAper
@@ -74,10 +77,12 @@ def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
     BkgFrame = BkgFrame[np.nonzero(BkgFrame)]
     BkgStd = np.std(BkgFrame)
     BkgMean = np.mean(BkgFrame)
-    CutoffUpper = BkgMean + 5*BkgStd #5 sigma cutoff for excluding really unusual pixel
-    CutoffLower = BkgMean - 5*BkgStd #5 sigma cutoff for excluding really unusual pixel
+    Sigma = 5
+    CutoffUpper = BkgMean + Sigma*BkgStd #5 sigma cutoff for excluding really unusual pixel
+    CutoffLower = BkgMean - Sigma*BkgStd #5 sigma cutoff for excluding really unusual pixel
 
-    BkgFrame = BkgFrame[np.nonzero((BkgFrame<CutoffUpper)*(BkgFrame>CutoffLower)*1.2)]
+    #redefining Background frame based on finding of the
+    BkgFrame = BkgFrame[np.nonzero((BkgFrame<CutoffUpper)*(BkgFrame>CutoffLower)*1.0)]
     BkgNewMean = np.mean(BkgFrame)
     BkgNewStd = np.std(BkgFrame)
 
@@ -89,6 +94,10 @@ def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
     area = measurements.sum(StdAper, lw, index=np.arange(lw.max() + 1)) # this measures the size of the apertures
     StdAper = area[lw].astype(int) # this replaces the 1s by the size of the aperture
     StdAper = (StdAper >= np.max(StdAper))*1 #
+
+    #Check if the Aperture is too large
+    if np.sum(StdAper)>(0.85*len(AvgFlux[0])*len(AvgFlux)):
+        raise Exception('Error in finding Aperture. Second Point. Maximum pixel value is ' + str(np.max(AvgFlux))+" and KepMag is " + str(KepMag))
 
     #find the outline and save the aperture in the relevant folder
     ver_seg = np.where(StdAper[:,1:] != StdAper[:,:-1])
@@ -114,30 +123,14 @@ def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
     pl.savefig(outputfolder+"/Aperture.png")
 
 
-    for i in range(ArrayLength):
+    for i in range(len(TotalFlux)):
         CurrentFrame = TotalFlux[i]
         CurrentFrame[np.isnan(CurrentFrame)] = 0.0 #converting all nan to zero
         Flux = CurrentFrame*StdAper
         XPos, YPos = measurements.center_of_mass(Flux)
-
-        #Estimating the background
-        BkgAper = 1.0 - StdAper
-
-        #simple background subtraction
-        BkgFrame = (BkgAper*CurrentFrame)
-        BkgFrame = BkgFrame[np.nonzero(BkgFrame)]
-        BkgStd = np.std(BkgFrame)
-        BkgMean = np.mean(BkgFrame)
-        CutoffUpper = BkgMean + 5*BkgStd #5 sigma cutoff for excluding really unusual pixel
-        CutoffLower = BkgMean - 5*BkgStd #5 sigma cutoff for excluding really unusual pixel
-
-        BkgFrame = BkgFrame[np.nonzero((BkgFrame<CutoffUpper)*(BkgFrame>CutoffLower)*1.0)]
-        BkgNewMean = np.mean(BkgFrame) #Calculating the new mean based on the cutoff
-        BkgMeanArray.append(BkgNewMean) #Delete this or save the diagram
-        Background = np.sum(StdAper)*BkgNewMean
-        FluxValue = np.sum(Flux) - Background
+        FluxValue = np.sum(Flux)
         if FluxValue>0:
-            FluxArray.append(np.sum(FluxValue))
+            FluxArray.append(FluxValue)
             DateArray.append(TotalDate[i])
             XArray.append(XPos)
             YArray.append(YPos)
@@ -145,7 +138,6 @@ def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
 
 
 def AdaptiveAperture(filepath='',outputpath='',campaign='',plot=False):
-    print "Adaptive Aperture"
     starname = str(re.search('[0-9]{9}',filepath).group(0))
     if "spd" in filepath:
       starname = starname+"_spd"
@@ -163,8 +155,6 @@ def AdaptiveAperture(filepath='',outputpath='',campaign='',plot=False):
     print "KEPLERID", KeplerID
     TotalDate = FitsFile[1].data['Time']
     TotalFlux = FitsFile[1].data['Flux']
-
-    ArrayLength = len(TotalFlux)
     Quality = FitsFile[1].data['Quality']
     RA = FitsFile[0].header['RA_OBJ']
     Dec = FitsFile[0].header['DEC_OBJ']
@@ -201,6 +191,9 @@ def AdaptiveAperture(filepath='',outputpath='',campaign='',plot=False):
     StdAper = area[lw].astype(int) # this replaces the 1s by the size of the aperture
     StdAper = (StdAper >= np.max(StdAper))*1 #make the standard aperture as 1.0
 
+    #Check if the Aperture is too large
+    if np.sum(StdAper)>(0.85*len(AvgFlux[0])*len(AvgFlux)):
+        raise Exception('Error in finding Aperture. Maximum pixel value is ' + str(np.max(AvgFlux)))
 
     #Estimating the background
     BkgAper = 1.0 - StdAper
@@ -213,7 +206,8 @@ def AdaptiveAperture(filepath='',outputpath='',campaign='',plot=False):
     CutoffUpper = BkgMean + 5*BkgStd #5 sigma cutoff for excluding really unusual pixel
     CutoffLower = BkgMean - 5*BkgStd #5 sigma cutoff for excluding really unusual pixel
 
-    BkgFrame = BkgFrame[np.nonzero((BkgFrame<CutoffUpper)*(BkgFrame>CutoffLower)*1.2)]
+    #redefining Background frame based on finding of the
+    BkgFrame = BkgFrame[np.nonzero((BkgFrame<CutoffUpper)*(BkgFrame>CutoffLower)*1.0)]
     BkgNewMean = np.mean(BkgFrame)
     BkgNewStd = np.std(BkgFrame)
 
@@ -224,7 +218,12 @@ def AdaptiveAperture(filepath='',outputpath='',campaign='',plot=False):
     lw, num = measurements.label(StdAper) # this numbers the different apertures distinctly
     area = measurements.sum(StdAper, lw, index=np.arange(lw.max() + 1)) # this measures the size of the apertures
     StdAper = area[lw].astype(int) # this replaces the 1s by the size of the aperture
-    StdAper = (StdAper >= np.max(StdAper))*1 #
+    StdAper = (StdAper >= np.max(StdAper))*1
+
+    #Check if the Aperture is too large
+    if np.sum(StdAper)>(0.85*len(AvgFlux[0])*len(AvgFlux)):
+        raise Exception('Error in finding Aperture. Maximum pixel value is ' + str(np.max(AvgFlux)))
+
 
     #find the outline and save the aperture in the relevant folder
     ver_seg = np.where(StdAper[:,1:] != StdAper[:,:-1])
@@ -244,13 +243,13 @@ def AdaptiveAperture(filepath='',outputpath='',campaign='',plot=False):
 
     segments = np.array(l)
     pl.figure()
-    pl.imshow(AvgFlux,cmap='gray')
+    pl.imshow(AvgFlux,cmap='gray',interpolation="none")
     pl.plot(segments[:,0]-0.5, segments[:,1]-0.5, color=(1,0,0,.5), linewidth=3)
     pl.title("Aperture Selected")
     pl.savefig(outputfolder+"/Aperture.png")
 
 
-    for i in range(ArrayLength):
+    for i in range(len(TotalFlux)):
         CurrentFrame = TotalFlux[i]
         CurrentFrame[np.isnan(CurrentFrame)] = 0.0 #converting all nan to zero
         Flux = CurrentFrame*StdAper

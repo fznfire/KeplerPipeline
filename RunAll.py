@@ -13,7 +13,7 @@ import re
 import warnings
 warnings.filterwarnings("ignore")
 
-CampaignNumber = [8]#,7,6,5,4,3,2,1,0]
+CampaignNumber = [8,7,6,5,4,3,2,1,0]
 
 
 RUNID = '_'.join(time.asctime().split(" ")[i] for i in [1,3,4,5])
@@ -38,7 +38,7 @@ for Campaign in CampaignNumber:
     RunSuccess = False
     inst = ''
     try:
-      run(filepath=filepaths[i],outputpath=outputpath,makelightcurve=True,campaign=CampaignNumber, find_transits=True, method='SFF')
+      run(filepath=filepaths[i],outputpath=outputpath,makelightcurve=True,campaign=CampaignNumber, find_transits=True, method='Spitzer')
       RunSuccess = True
     except Exception as inst:
       print str(inst) + "\n"

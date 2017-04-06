@@ -185,7 +185,7 @@ def spitzer_fit(time,data,Xc,Yc,starname='',outputpath='',chunksize=300):
     pl.plot(time_chunks[i],final_model,'*',label='Modeled data')
 
     pl.figure('Corrected data Spitzer ' + str(starname))
-    pl.plot(time_chunks[i],corrected_data[i],'*')#,label='Corrected data')
+    pl.plot(time_chunks[i],corrected_data[i],'*',label='Corrected data')
 
     i = i + 1
   pl.legend()
@@ -337,7 +337,7 @@ def sff_fit(time,data,Xc,Yc,starname='',outputpath='',chunksize=300, niter = 10,
     pl.plot(interptime,1.0+corrflux,'*',label='Modeled data')
 
     pl.figure('Corrected data SFF ' + str(starname))
-    pl.plot(interptime,corrflux,'*')#,label='Corrected data')
+    pl.plot(interptime,corrflux,'*',label='Corrected data')
     corrected_data = np.append(corrected_data, 1.0 + (corrflux))
     corrected_time = np.append(corrected_time,(interptime))
 

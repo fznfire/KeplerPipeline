@@ -32,8 +32,9 @@ if len(SelectedStars)>0:
     filepaths = LimitByEpic(filepaths, SelectedStars)
 
 #filepaths = ["/home/pniraula/Downloads/ktwo201577035-c01_lpd-targ.fits"]
-filepaths = ["/Volumes/westep/prajwal/Campaign5/ktwo211719918-c05_spd-targ.fits"]
+#filepaths = ["/Volumes/westep/prajwal/Campaign5/ktwo211719918-c05_spd-targ.fits"]
 #filepaths = ["/Volumes/westep/prajwal/Campaign8/ktwo220717512-c08_lpd-targ.fits"]
+filepaths = ["/Volumes/westep/prajwal/Campaign4/ktwo210659779-c04_spd-targ.fits"]
 i = 0
 exc_list = []
 
@@ -42,7 +43,7 @@ while i < len(filepaths):
   print "Currently running EPIC ID::", EPIC_ID
 
   try:
-    run(filepath=filepaths[i],outputpath=outputpath,makelightcurve=True,campaign=CampaignNumber, find_transits=True, method='SFF')
+    run(filepath=filepaths[i],outputpath=outputpath,makelightcurve=True,campaign=CampaignNumber, find_transits=True, method='Spitzer')
   except Exception as inst:
     print inst
     exc_list.append(inst)

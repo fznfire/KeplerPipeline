@@ -34,7 +34,7 @@ def run(filepath='',outputpath='',makelightcurve=True, find_transits=True,campai
     # makes raw light curve from pixel file
 
     #t,f_t,Xc,Yc = pixeltoflux.gotoflux(filepath,outputpath=outputpath,campaign=campaign,cutoff_limit=cutoff_limit)
-    t,f_t,Xc,Yc = AdaptiveAperture(filepath,outputpath=outputpath,campaign=campaign,plot=False)
+    t,f_t,Xc,Yc = StandardAperture(filepath,outputpath=outputpath,campaign=campaign,plot=False)
 
     # removes outlying data points where thrusters are fired
     t,f_t,Xc,Yc = centroidfit.find_thruster_events(t,f_t,Xc,Yc,starname=starname,outputpath=outputfolder)

@@ -131,8 +131,6 @@ def StandardAperture(filepath='',outputpath='',plot=False):
         FluxValue = np.sum(Flux)
         if FluxValue>0:
             YPos, XPos = measurements.center_of_mass(Flux)
-            height,amp,XPosG,YPosG,xwid,ywid,angle = gaussfit(Flux)
-
             FluxArray.append(FluxValue)
             DateArray.append(TotalDate[i])
             #Uncomment later

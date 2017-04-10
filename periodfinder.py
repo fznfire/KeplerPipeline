@@ -30,12 +30,12 @@ def get_period(t,f_t,get_mandelagolmodel=True,outputpath='',starname=''):
   #
   # here we use a BLS algorithm to create a periodogram and find the best periods. The BLS is implemented in Python by Ruth Angus and Dan Foreman-Macey
   #
-
+  print "Inside get period"
   outputfolder = os.path.join(outputpath,str(starname))
 
-  fmin = 0.03 # minimum frequency. we can't find anything longer than 90 days obviously
-  nf = 60000 # amount of frequencies to try
-  df = 0.00001 # frequency step
+  fmin = 0.02 # minimum frequency. we can't find anything longer than 90 days obviously
+  nf = 1e6 # amount of frequencies to try
+  df = 1e-5#0.00001 # frequency step
 
   qmi = 0.0005 # min relative length of transit (in phase unit)
   qma = 0.1 # max relative length of transit (in phase unit)
@@ -44,7 +44,6 @@ def get_period(t,f_t,get_mandelagolmodel=True,outputpath='',starname=''):
   u = np.linspace(fmin,fmin + nf*df,nf)
   v = np.array(0)
   t = np.array(t)
-  print t[0]
   f_t = np.array(f_t)
 
   t_orig = np.copy(t)
@@ -126,6 +125,7 @@ def make_combo_figure(filepath,t,f_t,period,freqs,power,starname='',outputpath='
   # This definition can be used to make a single overview figure, showing the lightcurve + a zoom, a BLS periodogram, and folded (+ smoothed) light curves based on the best frequencies and their multiples
   # This figure is used to eyeball good candidates
   #
+  print "Making combo figure..."
 
   t = np.array(t)
   f_t = np.array(f_t)
@@ -158,6 +158,8 @@ def make_combo_figure(filepath,t,f_t,period,freqs,power,starname='',outputpath='
   ax2.set_xlabel('Time [d]')
 
   P_min = freqs[-1]
+
+  print "Minimum Period::", P_min
   P_max = freqs[0]
   freq_best = 1./period
   label = ' (Pmin = ' + str(np.round(P_min,3)) + ', Pmax = ' + str(np.round(P_max,3)) + ')'

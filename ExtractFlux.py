@@ -4,11 +4,10 @@ import matplotlib.pyplot as pl
 import scipy.ndimage
 from astropy.io import fits
 from scipy.ndimage import convolve, measurements
-from scipy.stats import mode
 import os
 import re
 
-def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
+def StandardAperture(filepath='',outputpath='',plot=False):
     starname = str(re.search('[0-9]{9}',filepath).group(0))
     if "spd" in filepath:
       starname = starname+"_spd"
@@ -42,7 +41,6 @@ def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
     XArray = []
     YArray = []
     BkgMeanArray = []
-
 
     #Find Background Value
     if "spd" in filepath:
@@ -86,7 +84,8 @@ def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
     BkgNewMean = np.mean(BkgFrame)
     BkgNewStd = np.std(BkgFrame)
 
-    ExpectedFluxUnder = BkgNewMean+1.75*BkgNewStd
+    Sigma = 2.5
+    ExpectedFluxUnder = BkgNewMean+Sigma*BkgNewStd
 
     #find a standard Aperture
     StdAper = 1.0*(AvgFlux>ExpectedFluxUnder)
@@ -117,7 +116,8 @@ def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
 
     segments = np.array(l)
     pl.figure()
-    pl.imshow(AvgFlux,cmap='gray')
+    pl.imshow(AvgFlux,cmap='rainbow',interpolation='none')
+    pl.colorbar()
     pl.plot(segments[:,0]-0.5, segments[:,1]-0.5, color=(1,0,0,.5), linewidth=3)
     pl.title("Aperture Selected")
     pl.savefig(outputfolder+"/Aperture.png")
@@ -127,13 +127,19 @@ def StandardAperture(filepath='',outputpath='',campaign='',plot=False):
         CurrentFrame = TotalFlux[i]
         CurrentFrame[np.isnan(CurrentFrame)] = 0.0 #converting all nan to zero
         Flux = CurrentFrame*StdAper
-        XPos, YPos = measurements.center_of_mass(Flux)
+
         FluxValue = np.sum(Flux)
         if FluxValue>0:
+            YPos, XPos = measurements.center_of_mass(Flux)
+            height,amp,XPosG,YPosG,xwid,ywid,angle = gaussfit(Flux)
+
             FluxArray.append(FluxValue)
             DateArray.append(TotalDate[i])
+            #Uncomment later
             XArray.append(XPos)
             YArray.append(YPos)
+
+
     return np.array(DateArray), np.array(FluxArray), np.array(XArray), np.array(YArray)
 
 
@@ -242,12 +248,12 @@ def AdaptiveAperture(filepath='',outputpath='',campaign='',plot=False):
 
 
     segments = np.array(l)
+
     pl.figure()
     pl.imshow(AvgFlux,cmap='gray',interpolation="none")
     pl.plot(segments[:,0]-0.5, segments[:,1]-0.5, color=(1,0,0,.5), linewidth=3)
     pl.title("Aperture Selected")
     pl.savefig(outputfolder+"/Aperture.png")
-
 
     for i in range(len(TotalFlux)):
         CurrentFrame = TotalFlux[i]

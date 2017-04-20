@@ -27,13 +27,10 @@ def fold_data(t,y,period):
 
 
 def get_period(t,f_t,get_mandelagolmodel=True,outputpath='',starname=''):
-  #
-  # here we use a BLS algorithm to create a periodogram and find the best periods. The BLS is implemented in Python by Ruth Angus and Dan Foreman-Macey
-  #
-  print "Inside get period"
-  outputfolder = os.path.join(outputpath,str(starname))
 
-  fmin = 0.02 # minimum frequency. we can't find anything longer than 90 days obviously
+  # here we use a BLS algorithm to create a periodogram and find the best periods. The BLS is implemented in Python by Ruth Angus and Dan Foreman-Macey
+  outputfolder = os.path.join(outputpath,str(starname))
+  fmin = 0.03 # minimum frequency. we can't find anything longer than 90 days obviously
   nf = 1e6 # amount of frequencies to try
   df = 1e-5#0.00001 # frequency step
 
@@ -48,7 +45,12 @@ def get_period(t,f_t,get_mandelagolmodel=True,outputpath='',starname=''):
 
   t_orig = np.copy(t)
   f_t_orig = f_t
-  results = bls.eebls(t,f_t,t,f_t,nf,fmin,df,nb,qmi,qma)
+
+  try:
+      print "Trying eebls"
+      results = bls.eebls(t,f_t,t,f_t,nf,fmin,df,nb,qmi,qma)
+  except:
+      raise Exception('Error running bls code')
   freqlist = u
   powers = results[0]
   period = results[1]
@@ -63,6 +65,8 @@ def get_period(t,f_t,get_mandelagolmodel=True,outputpath='',starname=''):
   pl.plot(folded,f_t_folded+1.,'.',color='black',label='K2 photometry')
   pl.xlabel('Time [d]')
   pl.ylabel('Relative Flux')
+  pl.savefig(os.path.join(outputfolder, 'folded_P_' + 'star_' + str(starname) +str(period) + '.png'))
+  pl.close('all')
 
   if get_mandelagolmodel:
     # this is not a core part of the module and uses a transit model by Mandel & Agol, implemented in Python by Ian Crossfield.
@@ -82,10 +86,12 @@ def get_period(t,f_t,get_mandelagolmodel=True,outputpath='',starname=''):
     legend = pl.legend(loc='upper center',numpoints=1,scatterpoints=1,fontsize=15,prop={'size':15},title='EPIC 205071984')
     pl.tick_params(labelsize=17)
     pl.tick_params(axis='both', which='major', width=1.5)
-
     pl.tight_layout()
     pl.setp(legend.get_title(),fontsize=17)
-  pl.savefig(os.path.join(outputfolder, 'folded_P_' + 'star_' + str(starname) +str(period) + '.png'))
+    pl.savefig(os.path.join(outputfolder, 'MandelAlgol' + 'star_' + str(starname) +str(period) + '.png'))
+    pl.close('all')
+
+
 
   # unravel again
   n_start = int(np.round(t[0] / period))

@@ -17,31 +17,6 @@ inputpath = inputpath+str(CampaignNumber)+"/*.fits"
 inputpath = "/home/pniraula/Downloads/Test"+"/*.fits" #For testing
 filepaths = glob(inputpath)
 
-
-'''
-SelectedStars = ["201563164"] #limit the stars by EPIC ID
-
-def LimitByEpic(Filepaths, EPICLists): #select by epic name
-    TempFilePaths = []
-    for epic in EPICLists:
-        for filepath in Filepaths:
-            if epic in filepath:
-                TempFilePaths.append(filepath)
-    return TempFilePaths
-
-if len(SelectedStars)>0:
-    filepaths = LimitByEpic(filepaths, SelectedStars)
-
-#filepaths = ["/home/pniraula/Downloads/ktwo201577035-c01_lpd-targ.fits"]
-#filepaths = ["/Volumes/westep/prajwal/Campaign5/ktwo211719918-c05_spd-targ.fits"]
-#filepaths = ["/Volumes/westep/prajwal/Campaign8/ktwo220717512-c08_lpd-targ.fits"]
-#filepaths = ["/Volumes/westep/prajwal/Campaign4/ktwo210659779-c04_lpd-targ.fits"] #change to spd
-'''
-
-
-filepaths = [filepaths[0]]
-
-
 i = 0
 exc_list = []
 
@@ -62,6 +37,7 @@ if exc_list:
   print exc_list
 
 print 'Done...'
+
 
 
 #Notes for the future

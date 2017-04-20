@@ -13,8 +13,10 @@ def StandardAperture(filepath='',outputpath='',plot=False):
       starname = starname+"_spd"
 
     outputfolder = os.path.join(outputpath,starname)
-    FitsFile = fits.open(filepath) #opening the fits file
-
+    try:
+        FitsFile = fits.open(filepath,memmap=True) #opening the fits file
+    except:
+        raise Exception('Error opening the file')
     TestPaths = [outputpath,outputpath+"/"+starname+"/"]
     for path in TestPaths:
         if not os.path.exists(path):

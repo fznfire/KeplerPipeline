@@ -13,7 +13,7 @@ import re
 import warnings
 warnings.filterwarnings("ignore")
 
-CampaignNumber = [9]
+CampaignNumber = [4,5,6,7]
 
 
 RUNID = '_'.join(time.asctime().split(" ")[i] for i in [1,2,4,3])
@@ -46,8 +46,7 @@ for Campaign in CampaignNumber:
   print "_"*75
   while i < len(filepaths):
     EPIC_ID = re.search('[0-9]{9}',filepaths[i]).group(0)
-
-    print "Currently running EPIC ID::", EPIC_ID, "  ",str(i+1), " out of ", str(len(filepaths))
+    print "Currently running EPIC ID::", filepaths[i], "  ",str(i+1), " out of ", str(len(filepaths))
     RecordFile.write(str(Campaign)+'::')
     RunSuccess = False
     inst = ''
@@ -57,7 +56,7 @@ for Campaign in CampaignNumber:
     except Exception as inst:
       print str(inst) + "\n"
       exc_list.append(inst)
-    RecordFile.write(str(Campaign)+'::'+str(RunSuccess)+"  "+str(inst)+"\n")
+    RecordFile.write(str(EPIC_ID)+'::'+str(RunSuccess)+"  "+str(inst)+"\n")
 
     i = i + 1
 

@@ -7,6 +7,7 @@
 '''
 
 # general python files
+from __future__ import division
 import os
 import matplotlib.pyplot as pl
 import numpy as np
@@ -29,8 +30,9 @@ def fold_data(t,y,period):
 def get_period(t,f_t,get_mandelagolmodel=True,outputpath='',starname=''):
 
   # here we use a BLS algorithm to create a periodogram and find the best periods. The BLS is implemented in Python by Ruth Angus and Dan Foreman-Macey
+
   outputfolder = os.path.join(outputpath,str(starname))
-  fmin = 0.03 # minimum frequency. we can't find anything longer than 90 days obviously
+  fmin = 2.0/((t[len(t)-1]-t[0])) # minimum frequency. we can't find anything longer than 90 days obviously
   nf = 1e6 # amount of frequencies to try
   df = 1e-5#0.00001 # frequency step
 
@@ -46,11 +48,7 @@ def get_period(t,f_t,get_mandelagolmodel=True,outputpath='',starname=''):
   t_orig = np.copy(t)
   f_t_orig = f_t
 
-  try:
-      print "Trying eebls"
-      results = bls.eebls(t,f_t,t,f_t,nf,fmin,df,nb,qmi,qma)
-  except:
-      raise Exception('Error running bls code')
+  results = bls.eebls(t,f_t,t,f_t,nf,fmin,df,nb,qmi,qma)
   freqlist = u
   powers = results[0]
   period = results[1]

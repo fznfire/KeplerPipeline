@@ -25,7 +25,7 @@ while i < len(filepaths):
   print "Currently running EPIC ID::", EPIC_ID
 
   try:
-    run(filepath=filepaths[i],outputpath=outputpath,makelightcurve=True,find_transits=True, method='SplineDetrend')
+    run(filepath=filepaths[i],outputpath=outputpath,makelightcurve=True,find_transits=True, method='Spitzer')
   except Exception as inst:
     print inst
     exc_list.append(inst)

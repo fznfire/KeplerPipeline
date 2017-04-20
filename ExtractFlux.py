@@ -123,6 +123,7 @@ def StandardAperture(filepath='',outputpath='',plot=False):
     pl.plot(segments[:,0]-0.5, segments[:,1]-0.5, color=(1,0,0,.5), linewidth=3)
     pl.title("Aperture Selected")
     pl.savefig(outputfolder+"/Aperture.png")
+    pl.close()
 
 
     for i in range(len(TotalFlux)):

@@ -33,8 +33,8 @@ def get_period(t,f_t,get_mandelagolmodel=True,outputpath='',starname=''):
 
   outputfolder = os.path.join(outputpath,str(starname))
   fmin = 2.0/((t[len(t)-1]-t[0])) # minimum frequency. we can't find anything longer than 90 days obviously
-  nf = 1e6 # amount of frequencies to try
-  df = 1e-5#0.00001 # frequency step
+  nf = 1e5 # amount of frequencies to try
+  df = 1e-4#0.00001 # frequency step
 
   qmi = 0.0005 # min relative length of transit (in phase unit)
   qma = 0.1 # max relative length of transit (in phase unit)
@@ -148,6 +148,7 @@ def make_combo_figure(filepath,t,f_t,period,freqs,power,starname='',outputpath='
   ax9 = pl.subplot2grid((6,3), (5,2))
 
   sn = np.max(power)/np.median(power)
+
   if sn > 4.:
     titlecolor = 'green'
     outputfigfolder = os.path.join(outputpath,'figs/high_sn/')
@@ -162,10 +163,14 @@ def make_combo_figure(filepath,t,f_t,period,freqs,power,starname='',outputpath='
   ax2.set_xlabel('Time [d]')
 
   P_min = freqs[-1]
-
-  print "Minimum Period::", P_min
   P_max = freqs[0]
   freq_best = 1./period
+
+  #saving in the summary
+  RecordFile = open(outputpath+"/RunSummary.csv","a")
+  RecordFile.write(str('%.2f' %sn) +','+str('%.5f' %freq_best)+',')
+  RecordFile.close()
+
   label = ' (Pmin = ' + str(np.round(P_min,3)) + ', Pmax = ' + str(np.round(P_max,3)) + ')'
   freqs = np.array(freqs)
   freqs = 1./freqs

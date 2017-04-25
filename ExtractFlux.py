@@ -7,7 +7,8 @@ from scipy.ndimage import convolve, measurements
 import os
 import re
 
-def StandardAperture(filepath='',outputpath='',plot=False):
+def StandardAperture(filepath='',outputpath='',plot=False, Campaign=1):
+
     starname = str(re.search('[0-9]{9}',filepath).group(0))
     if "spd" in filepath:
       starname = starname+"_spd"
@@ -17,6 +18,8 @@ def StandardAperture(filepath='',outputpath='',plot=False):
         FitsFile = fits.open(filepath,memmap=True) #opening the fits file
     except:
         raise Exception('Error opening the file')
+
+
     TestPaths = [outputpath,outputpath+"/"+starname+"/"]
     for path in TestPaths:
         if not os.path.exists(path):
@@ -24,14 +27,24 @@ def StandardAperture(filepath='',outputpath='',plot=False):
 
     #extract the vital information from the fits file
     KeplerID = FitsFile[0].header['KEPLERID']
+    print "KEPLERID:", KeplerID
     TotalDate = FitsFile[1].data['Time']
     TotalFlux = FitsFile[1].data['Flux']
     Quality = FitsFile[1].data['Quality']
     RA = FitsFile[0].header['RA_OBJ']
     Dec = FitsFile[0].header['DEC_OBJ']
     KepMag = FitsFile[0].header['Kepmag']
+    print "Kepler Magnitude:", KepMag
     Xabs = FitsFile[2].header['CRVAL2P'] # X position of pixel on kepler spacecraft
     Yabs = FitsFile[2].header['CRVAL1P'] # Y position of pixel on kepler spacecraft
+
+    #Writing the information to the summary
+    if (Campaign==9 or Campaign==10) and ("2_" in filepath):
+        pass
+    else:
+        RecordFile = open(outputpath+"/RunSummary.csv","a")
+        RecordFile.write(starname+','+str(RA)+','+str(Dec)+','+str(KepMag)+',')
+        RecordFile.close()
 
     #Doing median stack again average
     AvgFlux = np.nanmedian(TotalFlux, axis=0)
@@ -86,7 +99,7 @@ def StandardAperture(filepath='',outputpath='',plot=False):
     BkgNewMean = np.mean(BkgFrame)
     BkgNewStd = np.std(BkgFrame)
 
-    Sigma = 2.5
+    Sigma = 2.5  ###Important for determining the aperture
     ExpectedFluxUnder = BkgNewMean+Sigma*BkgNewStd
 
     #find a standard Aperture
@@ -139,8 +152,7 @@ def StandardAperture(filepath='',outputpath='',plot=False):
             #Uncomment later
             XArray.append(XPos)
             YArray.append(YPos)
-
-
+        
     return np.array(DateArray), np.array(FluxArray), np.array(XArray), np.array(YArray)
 
 
@@ -166,8 +178,6 @@ def AdaptiveAperture(filepath='',outputpath='',campaign='',plot=False):
     RA = FitsFile[0].header['RA_OBJ']
     Dec = FitsFile[0].header['DEC_OBJ']
     KepMag = FitsFile[0].header['Kepmag']
-
-
     print "Magnitude::",KepMag
     Xabs = FitsFile[2].header['CRVAL2P'] # X position of pixel on kepler spacecraft
     Yabs = FitsFile[2].header['CRVAL1P']

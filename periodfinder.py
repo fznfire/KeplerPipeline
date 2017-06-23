@@ -55,7 +55,7 @@ def get_period(t,f_t,get_mandelagolmodel=True,outputpath='',starname=''):
 
   folded,f_t_folded = fold_data(t,f_t,period)
 
-  np.savetxt(os.path.join(outputfolder, 'folded_P' + str(period) + 'star_' + str(starname) + '.txt'),np.transpose([folded,f_t_folded]),header='Time, Flux')
+  np.savetxt(os.path.join(outputfolder, 'PhaseFolded.txt'),np.transpose([folded,f_t_folded]),header='Time, Flux')
 
   t_foldbin,f_t_foldbin,stdv_foldbin = rebin_dataset(folded,f_t_folded,15)
   f_t_smooth = savitzky_golay(f_t_folded,29,1)
@@ -63,7 +63,7 @@ def get_period(t,f_t,get_mandelagolmodel=True,outputpath='',starname=''):
   pl.plot(folded,f_t_folded+1.,'.',color='black',label='K2 photometry')
   pl.xlabel('Time [d]')
   pl.ylabel('Relative Flux')
-  pl.savefig(os.path.join(outputfolder, 'folded_P_' + 'star_' + str(starname) +str(period) + '.png'))
+  pl.savefig(os.path.join(outputfolder, 'PhaseFolded.png'))
   pl.close('all')
 
   if get_mandelagolmodel:

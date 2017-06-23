@@ -10,8 +10,8 @@ from os.path import exists
 import time
 import re
 
-import warnings
-warnings.filterwarnings("ignore") #To suppress the warning. Comment this to see the range of warning.
+#import warnings
+#warnings.filterwarnings("ignore") #To suppress the warning. Comment this to see the range of warning.
 
 #RUNID starts from 1000000 (1 million) and is increased by one every run
 RUNID_File = open("RUNID.txt","r")
@@ -35,7 +35,7 @@ PeriodFinder = "nf = 1e5 df = 1e-4"
 SpecialNote = "Test Run"
 ApertureSigma = "2.5"
 
-CampaignNumber = [9]
+CampaignNumber = [5,4,3]
 CampaignStr = ','.join(str(i) for i in CampaignNumber)
 
 outputpath = "Output/"+RUNID
@@ -69,12 +69,11 @@ for Campaign in CampaignNumber:
 
   filepaths = glob(inputpath)
   i = 0 #initiating counter for the files
-
   print "Starting Campaign::", str(Campaign)
   print "_"*75
 
 
-  while i < len(filepaths)-5: #Need to modify this. Here here see this!
+  while i < len(filepaths): #Need to modify this. Here here see this!
 
     EPIC_ID = re.search('[0-9]{9}',filepaths[i]).group(0) #extracting epic ID number
     print "Currently running EPIC ID::", filepaths[i], "  ",str(i+1), " out of ", str(len(filepaths))
@@ -92,8 +91,9 @@ for Campaign in CampaignNumber:
     except Exception as inst:
       print str(inst) + "\n"
       RecordFile = open(outputpath+"/RunSummary.csv","a")
-      RecordFile.write(',,,,,,'+'Failed'+','+str(inst)+'\n')
+      RecordFile.write(',,,'+'Failed'+','+str(inst)+'\n')
       RecordFile.close()
+
 
     i = i + 1
 

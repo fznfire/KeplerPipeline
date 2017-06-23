@@ -81,7 +81,7 @@ def find_thruster_events(time,data,Xc,Yc,outputpath='',starname=''):
   #
   # Find events when the spacecruft thruster are fired. Usually no useful data points are gathered when this happens
   #
-
+  np.savetxt(os.path.join(outputpath,'RawLightCurve.txt'),np.transpose([time,np.array(data)/np.mean(data)]),header='Time, Flux')
   diff_centroid = np.diff(Xc)**2 + np.diff(Yc)**2
   thruster_mask = diff_centroid < (1.5*np.mean(diff_centroid) + 0.*np.std(diff_centroid))
   thruster_mask1 = np.insert(thruster_mask,0, False) # this little trick helps us remove 2 data points each time instead of just 1
@@ -96,19 +96,10 @@ def find_thruster_events(time,data,Xc,Yc,outputpath='',starname=''):
   time_clipped = time[:][thruster_mask]
   data_clipped = data[:][thruster_mask]
 
-
-  #pl.figure('Data with / without thruster events')
-  #pl.plot(time,data)
-  #pl.plot(time_clipped,data_clipped)
-
-  #pl.figure('Differential of centroid movement')
-  #pl.plot(time[1:],diff_centroid)
-  #pl.plot(time_thruster,diff_centroid_thruster,'*')
-
   pl.figure()
   pl.plot(time_clipped,data_clipped)
-  pl.savefig(os.path.join(outputpath,'raw_nothrusters_' + str(starname) + '.png'))
-  np.savetxt(os.path.join(outputpath,'lightcurve_raw_nothrusters_' + str(starname) + '.txt'),np.transpose([time_clipped,np.array(data_clipped)/np.mean(data_clipped)]),header='Time, Flux')
+  pl.savefig(os.path.join(outputpath,'raw_nothrusters.png'))
+  np.savetxt(os.path.join(outputpath,'RawLightCurveNoThruster.txt'),np.transpose([time_clipped,np.array(data_clipped)/np.mean(data_clipped)]),header='Time, Flux')
 
   return [time_clipped,data_clipped,Xc_clipped,Yc_clipped]
 
@@ -127,6 +118,7 @@ def clean_data(time,data):
   pl.plot(time,data,'.',color='grey')
   pl.xlabel('Time [d]')
   pl.ylabel('Relative flux')
+  pl.title('Cleaned Data')
   return time,data
 
 
@@ -137,12 +129,6 @@ def spitzer_fit(time,data,Xc,Yc,starname='',outputpath='',chunksize=300):
   #
 
   outputfolder = os.path.join(outputpath,str(starname))
-
-  # Remove NaN etc.
-  time = np.array(time)[np.array(time) > 0.]
-  data = np.array(data)[np.array(time) > 0.]
-  Xc = np.array(Xc)[np.array(time) > 0.]
-  Yc = np.array(Yc)[np.array(time) > 0.]
 
   data = np.array(data) / np.mean(data)
 
@@ -190,7 +176,7 @@ def spitzer_fit(time,data,Xc,Yc,starname='',outputpath='',chunksize=300):
     i = i + 1
   pl.legend()
   pl.savefig(os.path.join(outputfolder, 'centroiddetrended_lightcurve_' + str(starname) + '.png'))
-
+  pl.close()
 
   import itertools # to go from list of lists to one list again
   corrected_time = list(itertools.chain(*time_chunks))
@@ -343,10 +329,8 @@ def sff_fit(time,data,Xc,Yc,starname='',outputpath='',chunksize=300, niter = 10,
 
     i = i + 1
   pl.legend()
-  pl.savefig(os.path.join(outputfolder, 'centroiddetrended_lightcurve_' + str(starname) + '.png'))
+  pl.savefig(os.path.join(outputfolder, 'centroiddetrended_lightcurve_.png'))
 
-  import itertools # to go from list of lists to one list again
-  corrected_data = corrected_data
   # finally do a broad running median filtering to remove remaining trends. can be turned off if one wants to keep long term trends
   corrected_data = np.array(median_filter(corrected_time,np.array(corrected_data)+1.,49))-1. #
   corrected_data = np.array(median_filter(corrected_time,np.array(corrected_data)+1.,49))-1. #

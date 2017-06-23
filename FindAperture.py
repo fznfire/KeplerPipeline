@@ -76,8 +76,6 @@ def Case1(AvgFlux):
     return StdAper
 
 def Case2(AvgFlux):
-
-
     ExpectedFluxUnder = 2*np.median(AvgFlux)
 
     StdAper = (AvgFlux>ExpectedFluxUnder)
@@ -88,8 +86,33 @@ def Case2(AvgFlux):
 
     return StdAper
 
+def Case3(AvgFlux):
+    ExpectedFluxUnder = 175
+    StdAper = (AvgFlux>ExpectedFluxUnder)
+    lw, num = measurements.label(StdAper) # this numbers the different apertures distinctly
+    area = measurements.sum(StdAper, lw, index=np.arange(lw.max() + 1)) # this measures the size of the apertures
+    StdAper = area[lw].astype(int) # this replaces the 1s by the size of the aperture
+    StdAper = (StdAper >= np.max(StdAper))*1 #make the standard aperture as 1.0
+    return StdAper
 
-def FindAperture(filepath='',outputpath='',plot=False,SubFolder=''):
+
+def Case4(AvgFlux):
+
+    AvgFlux[0,:] = 0
+    AvgFlux[-1,:] = 0
+    AvgFlux[:,0] = 0
+    AvgFlux[:,-1] = 0
+    
+    return Case3(AvgFlux)
+
+def Case5(AvgFlux):
+    '''
+    Manual
+    '''
+    pass
+
+
+def FindAperture(filepath='',outputpath='',SubFolder=''):
     '''
     Centroid are calculated by center of mass function from scipy
     Background are fitting by spline.
@@ -103,7 +126,6 @@ def FindAperture(filepath='',outputpath='',plot=False,SubFolder=''):
     if "spd" in filepath:
       starname = starname+"_spd"
 
-    print filepath
     #read the FITS file
     try:
         FitsFile = fits.open(filepath,memmap=True) #opening the fits file
@@ -118,7 +140,11 @@ def FindAperture(filepath='',outputpath='',plot=False,SubFolder=''):
     AvgFlux = np.nanmedian(TotalFlux, axis=0)
     AvgFlux[np.isnan(AvgFlux)] = 0
 
-    StdAper = Case1(AvgFlux)
+    #StdAper = Case1(AvgFlux) #Run twice
+    #StdAper = Case2(AvgFlux) #  Twice the median
+    #StdAper = Case3(AvgFlux) #Fixed value of 175
+    StdAper = Case4(AvgFlux) #remove the boundary element
+    #StdAper = Case5(AvgFlux) #Manual
 
     ApertureOutline(StdAper,AvgFlux, outputfolder, starname)
     np.savetxt(outputfolder+"/"+starname+".txt",StdAper)

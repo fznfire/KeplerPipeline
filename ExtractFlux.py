@@ -280,6 +280,167 @@ def ApertureOnTheRun(filepath='',outputpath='',plot=False,Campaign=None, Quality
 
 
 
+def PredeterminedAperture(filepath='',outputpath='',plot=False,Campaign=None, SubFolder=''):
+    '''
+    Centroid are calculated by center of mass function from scipy
+    Background are fitting by spline.
+    '''
+
+    #extracting the starname
+    starname = str(re.search('[0-9]{9}',filepath).group(0))
+
+    #if short cadence data
+    if "spd" in filepath:
+      starname = starname+"_spd"
+
+
+
+    #constructing the output folder path
+    outputfolder = os.path.join(outputpath,starname)
+
+    #read the FITS file
+    try:
+        FitsFile = fits.open(filepath,memmap=True) #opening the fits file
+    except:
+        raise Exception('Error opening the file')
+
+    #make the directory if the directory does not exist
+    TestPaths = [outputpath,outputfolder]
+    for path in TestPaths:
+        if not os.path.exists(path):
+            os.system("mkdir %s" %(path))
+
+    #extract the vital information from the fits file
+    KeplerID = FitsFile[0].header['KEPLERID']
+    print "KEPLERID:", KeplerID
+    TotalDate = FitsFile[1].data['Time']
+    TotalFlux = FitsFile[1].data['Flux']
+    Quality = FitsFile[1].data['Quality']
+    RA = FitsFile[0].header['RA_OBJ']
+    Dec = FitsFile[0].header['DEC_OBJ']
+    KepMag = FitsFile[0].header['Kepmag']
+    print "Kepler Magnitude:", KepMag
+    Xabs = FitsFile[2].header['CRVAL2P'] # X position of pixel on kepler spacecraft
+    Yabs = FitsFile[2].header['CRVAL1P'] # Y position of pixel on kepler spacecraft
+
+
+
+    #Writing the information to the summary
+    if (Campaign==9 or Campaign==10) and ("2_" in filepath):
+        pass
+    else:
+        RecordFile = open(outputpath+"/RunSummary.csv","a")
+        RecordFile.write(starname+','+str(RA)+','+str(Dec)+','+str(KepMag)+',')
+        RecordFile.close()
+
+
+
+    #initiating array to collect values
+    FluxArray = []
+    X_Pos_Array = []
+    Y_Pos_Array = []
+    BkgArray = []
+    FluxIndex = []
+
+    #Find Background Value
+    if "spd" in filepath:
+      ExpectedFluxUnder = 100.0
+    else:
+      ExpectedFluxUnder = 400.0 #This value is arbitrarily choosen, and works for most stars
+
+    #loading the predeterined aperture
+    #Determine if the
+    ApertureSummary = loadtxt("Apertures/"+SubFolder.csv)
+    StdAper = loadtxt("Apertures/"+SubFolder+"/"+starname.txt, dtype=bool)
+    
+    pl.figure()
+    pl.imshow(StdAper)
+    pl.show()
+
+
+    for i in range(len(TotalFlux)):
+        CurrentFrame = TotalFlux[i]
+        CurrentFrame[np.isnan(CurrentFrame)] = 0.0 #converting all nan to zero
+        Flux = CurrentFrame*StdAper
+
+        BkgMedian = np.median((1-StdAper)*CurrentFrame)
+
+        #Getting the total value of the Flux
+        Background = np.sum(StdAper)*BkgMedian
+        FluxValue = np.sum(Flux)
+
+        FluxArray.append(FluxValue)
+        BkgArray.append(Background)
+
+
+        if FluxValue>0 and Quality[i]==0:
+            YPos, XPos = measurements.center_of_mass(Flux)
+            X_Pos_Array.append(XPos)
+            Y_Pos_Array.append(YPos)
+            FluxIndex.append(True)
+        else:
+            FluxIndex.append(False)
+
+
+    RawFluxDiagram(Quality,TotalDate,FluxArray,outputfolder)
+    FluxIndex = np.array(FluxIndex)
+    FluxArray = np.array(FluxArray)
+    BkgArray = np.array(BkgArray)
+
+    FluxArray = FluxArray[FluxIndex]
+    BkgArray = BkgArray[FluxIndex]
+    DateArray = TotalDate[FluxIndex]
+    X_Pos_Array =  np.array(X_Pos_Array)
+    Y_Pos_Array = np.array(Y_Pos_Array)
+
+    def moving_average(series, sigma=3):
+        b = gaussian(11, sigma)
+        average = filters.convolve1d(series, b/b.sum())
+        var = filters.convolve1d(np.power(series-average,2), b/b.sum())
+        return average, var
+
+    _, var = moving_average(BkgArray)
+    if "spd" in starname:
+        factor = 0.75
+    else:
+        factor = 0.9
+    spl =  UnivariateSpline(DateArray, BkgArray, w=factor/np.sqrt(var))
+    SplEstimatedBkg = spl(DateArray)
+
+
+
+    #saving diagnositic plot
+    pl.figure(figsize=(20,10))
+    pl.subplot(2,2,1)
+    pl.plot(DateArray, BkgArray,"k.", MarkerSize=2)
+    pl.plot(DateArray, SplEstimatedBkg,"g-",lw=2)
+    pl.xlabel('Time (days)')
+    pl.ylabel('Flux Count')
+    pl.title('Background')
+
+    pl.subplot(2,2,2)
+    pl.plot(DateArray, FluxArray,"ko",MarkerSize=2)
+    pl.title('Flux Reading')
+    pl.xlabel('Time (days)')
+    pl.ylabel('Flux Count')
+
+    pl.subplot(2,2,3)
+    pl.imshow(AvgFlux)
+    pl.axis('equal')
+    pl.title("Average Flux ")
+
+    pl.subplot(2,2,4)
+    pl.imshow(StdAper)
+    pl.axis('equal')
+    pl.title("Aperture")
+    pl.suptitle(str(KeplerID)+" Diagnostic")
+    pl.savefig(outputfolder+"/Background.png")
+    pl.close()
+
+    return DateArray, FluxArray, X_Pos_Array, Y_Pos_Array
+
+
+
 
 
 

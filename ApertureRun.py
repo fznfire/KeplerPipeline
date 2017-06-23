@@ -1,20 +1,18 @@
 #Author: Van Eylen code modified by Prajwal Niraula
 #Institution: Wesleyan University
-#Last Updated: March 1, 2017
 
-from __future__ import division
-from run_pipeline import run
 from glob import glob
 import re
 from numpy import loadtxt
-import warnings
-warnings.filterwarnings("ignore") #To suppress the warning. Comment this to see the range of warning.
-from
+import os
+from FindAperture import FindAperture
+import time
+
 outputpath = 'Apertures/'
 SubFolder = "PhaseCurves"
 
 
-inputpath = "/home/pniraula/Downloads/TestBackUp"+"/*.fits" #For testing
+inputpath = "/home/pniraula/Downloads/PhaseCurveFitsFiles/*.fits" #For testing
 
 filepaths = glob(inputpath)
 
@@ -25,42 +23,58 @@ outputfolder = outputpath+SubFolder
 TestPaths = [outputpath,outputfolder]
 
 
-FirstRun = True
+
 for path in TestPaths:
-    F
     if not os.path.exists(path):
         os.system("mkdir %s" %(path))
 
-if not os.path.exists(outputpath+SubFolder+".csv",'w'):
+if not os.path.exists(outputpath+SubFolder+".csv"):
+    FirstRun = True
     SummaryFile = open(outputpath+SubFolder+".csv",'w')
-    SummaryFile.write("EPIC_ID,Run,Verified")
+    SummaryFile.write("EPIC_ID,Run,Verified \n")
     SummaryFile.close()
 else:
+    FirstRun = False
     Status = loadtxt(outputpath+SubFolder+".csv",delimiter=',',skiprows=1,dtype=int)
+    os.system("cp %s %s" %(outputpath+SubFolder+".csv",outputpath+SubFolder+"_"+str(time.time())+".csv"))
+    SummaryFile = open(outputpath+SubFolder+".csv",'w')
+    SummaryFile.write("EPIC_ID,Run,Verified \n")
+    SummaryFile.close()
 
 
 i = 0
+for filepath in filepaths:
+  starname = str(re.search('[0-9]{9}',filepath).group(0))
+  print "Currently running EPIC ID::", starname
+
+  if FirstRun:
+      print "Case 1 (First Time)::", starname
+      try:
+          FindAperture(filepath=filepath,outputpath=outputpath,SubFolder=SubFolder)
+      except Exception as inst:
+          print inst
+          SummaryFile = open(outputpath+SubFolder+".csv",'a')
+          SummaryFile.write(starname+",0,0\n")
+          SummaryFile.close()
+  elif(Status[i][2]==0):
+      print "Case 2 (Trying Again)::", starname
+      try:
+          FindAperture(filepath=filepath,outputpath=outputpath,SubFolder=SubFolder)
+      except Exception as inst:
+          print inst
+          SummaryFile = open(outputpath+SubFolder+".csv",'a')
+          SummaryFile.write(starname+",0,0\n")
+          SummaryFile.close()
+  else:
+      print "Case 3 (Already Verified)::", starname
+      SummaryFile = open(outputpath+SubFolder+".csv",'a')
+      SummaryFile.write(starname+",1,1\n")
+      SummaryFile.close()
+  i+=1
 
 
-while i < len(filepaths):
-
-  EPIC_ID = re.search('[0-9]{9}',filepaths[i]).group(0)
-  print "Currently running EPIC ID::", EPIC_ID
-
-  try:
-    #if "spd" in filepaths[i]: #only for the short cadence data
-        run(filepath=filepaths[i],outputpath=outputpath,makelightcurve=True,find_transits=True, method='SFF')
-  except Exception as inst:
-    print inst
-    exc_list.append(inst)
-
-  i = i + 1
-  print str(i/len(filepaths)*100),"% completed"
-if exc_list:
-  print 'Module failed for some stars:'
-  print exc_list
 
 try:
-    Status = loadtxt(outputpath+SubFolder+".csv",delimiter=',',skiprows=1,dtype=int)
+    Status.close()
 except:
     pass

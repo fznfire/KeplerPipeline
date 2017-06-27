@@ -30,12 +30,12 @@ if not(exists('Output')):
 #Making directory for a particular run
 system("mkdir Output/%s" %(RUNID))
 
-MethodName = "Spitzer"
+MethodName = "SFF"
 PeriodFinder = "nf = 1e5 df = 1e-4"
 SpecialNote = "Test Run"
 ApertureSigma = "2.5"
 
-CampaignNumber = [5,4,3]
+CampaignNumber = [2,1,3]
 CampaignStr = ','.join(str(i) for i in CampaignNumber)
 
 outputpath = "Output/"+RUNID
@@ -84,7 +84,12 @@ for Campaign in CampaignNumber:
     RunSuccess = "Failed"
     inst = ''
     try:
-      run(filepath=filepaths[i],outputpath=outputpath,CNum=Campaign,makelightcurve=True,find_transits=True, method=MethodName)
+      if "spd" in filepaths[i]:
+            chunksize = 3000
+      else:
+            chunksize = 100
+      SubFolder = "Campaign"+str(Campaign)
+      run(filepath=filepaths[i],outputpath=outputpath,CNum=Campaign,chunksize=chunksize,method ='SFF',SubFolder=SubFolder)
       RecordFile = open(outputpath+"/RunSummary.csv","a")
       RecordFile.write('Success'+','+' ,\n')
       RecordFile.close()

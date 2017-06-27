@@ -1,6 +1,7 @@
 from __future__ import division
 import numpy as np
 import matplotlib.pyplot as pl
+import matplotlib.colors as colors
 from scipy.interpolate import UnivariateSpline
 from scipy.signal import gaussian
 from scipy.ndimage import filters
@@ -8,10 +9,11 @@ from astropy.io import fits
 from scipy.ndimage import convolve, measurements
 import os
 import re
+import operator
 
 from pixeltoflux import get_lightcurve
 
-def ApertureOutline(StdAper,AvgFlux, outputfolder):
+def ApertureOutline(StdAper,AvgFlux, outputfolder, X,Y):
     #find the outline and save the aperture in the relevant folder
     ver_seg = np.where(StdAper[:,1:] != StdAper[:,:-1])
     hor_seg = np.where(StdAper[1:,:] != StdAper[:-1,:])
@@ -30,12 +32,17 @@ def ApertureOutline(StdAper,AvgFlux, outputfolder):
 
     segments = np.array(l)
     pl.figure()
-    pl.imshow(AvgFlux,cmap='rainbow',interpolation='none')
+    pl.imshow(StdAper,cmap='gray',norm=colors.PowerNorm(gamma=1./2.),interpolation='none')
     pl.colorbar()
     pl.plot(segments[:,0]-0.5, segments[:,1]-0.5, color=(1,0,0,.5), linewidth=3)
+    pl.plot(X,Y, "ro")
     pl.title("Aperture Selected")
+    pl.gca().invert_yaxis()
+    pl.axis('equal')
+    pl.tight_layout()
     pl.savefig(outputfolder+"/Aperture.png")
     pl.close()
+
 
 def RawFluxDiagram(Quality,TotalDate,FluxArray,outputfolder):
     IndexArray = [Quality==0]
@@ -63,6 +70,9 @@ def RawFluxDiagram(Quality,TotalDate,FluxArray,outputfolder):
     pl.tight_layout()
     pl.savefig(outputfolder+"/GoodDatavsBadData.png")
     pl.close()
+
+
+
 
 def ApertureOnTheRun(filepath='',outputpath='',plot=False,Campaign=None, QualityCheck=False):
     '''
@@ -104,8 +114,6 @@ def ApertureOnTheRun(filepath='',outputpath='',plot=False,Campaign=None, Quality
     print "Kepler Magnitude:", KepMag
     Xabs = FitsFile[2].header['CRVAL2P'] # X position of pixel on kepler spacecraft
     Yabs = FitsFile[2].header['CRVAL1P'] # Y position of pixel on kepler spacecraft
-
-
 
     #Writing the information to the summary
     if (Campaign==9 or Campaign==10) and ("2_" in filepath):
@@ -248,33 +256,27 @@ def ApertureOnTheRun(filepath='',outputpath='',plot=False,Campaign=None, Quality
 
     #saving diagnositic plot
     pl.figure(figsize=(20,10))
-    pl.subplot(2,2,1)
+    pl.subplot(2,1,1)
     pl.plot(DateArray, BkgArray,"k.", MarkerSize=2)
     pl.plot(DateArray, SplEstimatedBkg,"g-",lw=2)
     pl.xlabel('Time (days)')
     pl.ylabel('Flux Count')
     pl.title('Background')
 
-    pl.subplot(2,2,2)
+    pl.subplot(2,1,2)
     pl.plot(DateArray, FluxArray,"ko",MarkerSize=2)
     pl.title('Flux Reading')
     pl.xlabel('Time (days)')
     pl.ylabel('Flux Count')
 
-    pl.subplot(2,2,3)
-    pl.imshow(AvgFlux)
-    pl.axis('equal')
-    pl.title("Average Flux ")
-
-    pl.subplot(2,2,4)
-    pl.imshow(StdAper)
-    pl.axis('equal')
-    pl.title("Aperture")
     pl.suptitle(str(KeplerID)+" Diagnostic")
     pl.savefig(outputfolder+"/Background.png")
     pl.close()
 
     return DateArray, FluxArray, X_Pos_Array, Y_Pos_Array
+
+
+
 
 
 
@@ -320,8 +322,8 @@ def PredeterminedAperture(filepath='',outputpath='',plot=False,Campaign=None, Su
     Dec = FitsFile[0].header['DEC_OBJ']
     KepMag = FitsFile[0].header['Kepmag']
     print "Kepler Magnitude:", KepMag
-    Xabs = FitsFile[2].header['CRVAL2P'] # X position of pixel on kepler spacecraft
-    Yabs = FitsFile[2].header['CRVAL1P'] # Y position of pixel on kepler spacecraft
+    X = FitsFile[2].header['CRPIX1']  - 1.0 #-1 to account for the fact indexing begins at 0 in python
+    Y = FitsFile[2].header['CRPIX2'] - 1.0
 
 
 
@@ -342,25 +344,26 @@ def PredeterminedAperture(filepath='',outputpath='',plot=False,Campaign=None, Su
     BkgArray = []
     FluxIndex = []
 
-    #Find Background Value
-    if "spd" in filepath:
-      ExpectedFluxUnder = 100.0
-    else:
-      ExpectedFluxUnder = 400.0 #This value is arbitrarily choosen, and works for most stars
 
-    #loading the predeterined aperture
+    #TODO Verify if the aperture is verifiedloading the predeterined aperture
     #Determine if the
-    ApertureSummary = loadtxt("Apertures/"+SubFolder.csv)
-    StdAper = loadtxt("Apertures/"+SubFolder+"/"+starname.txt, dtype=bool)
-    
-    pl.figure()
-    pl.imshow(StdAper)
-    pl.show()
+    #ApertureSummary = np.loadtxt("Apertures/"+SubFolder+".csv")
 
+    if starname.endswith('_spd'):
+        StarAperName = starname[:-4]
+    else:
+        StarAperName = starname
+    StdAper = np.loadtxt("Apertures/"+SubFolder+"/"+StarAperName+".txt")
+
+    Index = np.where(Quality==0)
+    GoodFlux = operator.itemgetter(*Index[0])(TotalFlux)
+    AvgFlux = np.nanmedian(GoodFlux, axis=0)
+    ApertureOutline(StdAper,AvgFlux, outputfolder, X, Y)
 
     for i in range(len(TotalFlux)):
         CurrentFrame = TotalFlux[i]
         CurrentFrame[np.isnan(CurrentFrame)] = 0.0 #converting all nan to zero
+
         Flux = CurrentFrame*StdAper
 
         BkgMedian = np.median((1-StdAper)*CurrentFrame)
@@ -394,7 +397,7 @@ def PredeterminedAperture(filepath='',outputpath='',plot=False,Campaign=None, Su
     Y_Pos_Array = np.array(Y_Pos_Array)
 
     def moving_average(series, sigma=3):
-        b = gaussian(11, sigma)
+        b = gaussian(39, sigma)
         average = filters.convolve1d(series, b/b.sum())
         var = filters.convolve1d(np.power(series-average,2), b/b.sum())
         return average, var
@@ -411,28 +414,19 @@ def PredeterminedAperture(filepath='',outputpath='',plot=False,Campaign=None, Su
 
     #saving diagnositic plot
     pl.figure(figsize=(20,10))
-    pl.subplot(2,2,1)
+    pl.subplot(2,1,1)
     pl.plot(DateArray, BkgArray,"k.", MarkerSize=2)
     pl.plot(DateArray, SplEstimatedBkg,"g-",lw=2)
     pl.xlabel('Time (days)')
     pl.ylabel('Flux Count')
     pl.title('Background')
 
-    pl.subplot(2,2,2)
+    pl.subplot(2,1,2)
     pl.plot(DateArray, FluxArray,"ko",MarkerSize=2)
     pl.title('Flux Reading')
     pl.xlabel('Time (days)')
     pl.ylabel('Flux Count')
 
-    pl.subplot(2,2,3)
-    pl.imshow(AvgFlux)
-    pl.axis('equal')
-    pl.title("Average Flux ")
-
-    pl.subplot(2,2,4)
-    pl.imshow(StdAper)
-    pl.axis('equal')
-    pl.title("Aperture")
     pl.suptitle(str(KeplerID)+" Diagnostic")
     pl.savefig(outputfolder+"/Background.png")
     pl.close()

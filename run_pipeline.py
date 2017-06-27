@@ -21,8 +21,9 @@ import periodfinder
 import re
 import K2SFF
 
-from ExtractFlux import StandardAperture, ModifiedStandardAperture
-def run(filepath,outputpath='',CNum=1,makelightcurve=True, find_transits=True,chunksize=48,cutoff_limit=2., method ='Spitzer'):
+from ExtractFlux import ApertureOnTheRun, PredeterminedAperture
+
+def run(filepath='',outputpath='',CNum=1,chunksize=300,method ='SFF',SubFolder=False):
 
   #Initializing the time
   InitialTime = time.time()
@@ -38,11 +39,7 @@ def run(filepath,outputpath='',CNum=1,makelightcurve=True, find_transits=True,ch
 
   outputfolder = os.path.join(outputpath,str(starname))
 
-  print "Step 1"
-  if makelightcurve:
-
-    # makes raw light curve from pixel file
-    if CNum==9 or CNum==10:
+  if CNum==9 or CNum==10:
 
         #two filenames present for campaign 9 and campaign 10
         AdditionalFilepath = filepath.replace("1_","2_")
@@ -56,18 +53,25 @@ def run(filepath,outputpath='',CNum=1,makelightcurve=True, find_transits=True,ch
         t1,f_t1,Xc1,Yc1 = centroidfit.find_thruster_events(t1,f_t1,Xc1,Yc1,starname=starname,outputpath=outputfolder)
         t2,f_t2,Xc2,Yc2 = centroidfit.find_thruster_events(t2,f_t2,Xc2,Yc2,starname=starname,outputpath=outputfolder)
 
-    else:
+  else:
         ##### Change this later
-        t,f_t,Xc,Yc = StandardAperture(filepath,outputpath=outputpath,plot=False,Campaign=CNum)
-        T_Raw = t[:]
-        Flux_Raw = f_t[:]
+        if SubFolder:
+            print "Predetermined Aperture"
+            t,f_t,Xc,Yc = PredeterminedAperture(filepath,outputpath=outputpath,plot=False,Campaign=CNum, SubFolder=SubFolder)
+            T_Raw = np.copy(t)
+            Flux_Raw = np.copy(f_t)
+        else:
+            print "Aperture on the run"
+            t,f_t,Xc,Yc = ApertureOnTheRun(filepath,outputpath=outputpath,plot=False,Campaign=CNum)
+            T_Raw = np.copy(t)
+            Flux_Raw = np.copy(f_t)
 
         #Remove the thruster events #TODO uncomment this later or implement this in K2SFF
-        #t,f_t,Xc,Yc = centroidfit.find_thruster_events(t,f_t,Xc,Yc,starname=starname,outputpath=outputfolder)
+        t,f_t,Xc,Yc = centroidfit.find_thruster_events(t,f_t,Xc,Yc,starname=starname,outputpath=outputfolder)
 
 
-    # now fit a polynomial to the data (inspired by Spitzer data reduction), ignore first data points which are not usually very high-quality
-    if method == 'Spitzer':
+  # now fit a polynomial to the data (inspired by Spitzer data reduction), ignore first data points which are not usually very high-quality
+  if method == 'Spitzer':
         if CNum==9 or CNum==10:
             [t1,f_t1] = centroidfit.spitzer_fit(t1,f_t1,Xc1,Yc1,starname=starname,outputpath=outputpath,chunksize=chunksize)
             [t2,f_t2] = centroidfit.spitzer_fit(t2,f_t2,Xc2,Yc2,starname=starname,outputpath=outputpath,chunksize=chunksize)
@@ -77,9 +81,10 @@ def run(filepath,outputpath='',CNum=1,makelightcurve=True, find_transits=True,ch
         #elif CNum==1:
             #[t,f_t] = centroidfit.spitzer_fit(t[90:],f_t[90:],Xc[90:],Yc[90:],starname=starname,outputpath=outputpath,chunksize=chunksize)
         else:
+            print "Running Spitzer method"
             [t,f_t] = centroidfit.spitzer_fit(t,f_t,Xc,Yc,starname=starname,outputpath=outputpath,chunksize=chunksize)
 
-    elif method == 'SFF':
+  elif method == 'SFF':
         if CNum==9 or CNum==10:
             [t1,f_t1] = centroidfit.sff_fit(t1,f_t1,Xc1,Yc1,starname=starname,outputpath=outputpath,chunksize=chunksize)
             [t2,f_t2] = centroidfit.sff_fit(t2,f_t2,Xc2,Yc2,starname=starname,outputpath=outputpath,chunksize=chunksize)
@@ -88,49 +93,47 @@ def run(filepath,outputpath='',CNum=1,makelightcurve=True, find_transits=True,ch
         #elif CNum==1:
             #[t,f_t] = centroidfit.sff_fit(t[90:],f_t[90:],Xc[90:],Yc[90:],starname=starname,outputpath=outputpath,chunksize=chunksize)
         else:
-            [t,f_t] = K2SFF.sff_fit(t,f_t,Xc,Yc,starname=starname,outputpath=outputpath,chunksize=chunksize)
-    else:
+            [t,f_t] = centroidfit.sff_fit(t,f_t,Xc,Yc,starname=starname,outputpath=outputpath,chunksize=chunksize)
+            #[t,f_t] = K2SFF.sff_fit(t,f_t,Xc,Yc,starname=starname,outputpath=outputpath,chunksize=chunksize)
+  else:
         raise Exception('No valid method given.')
 
-    T_Detrended = np.copy(t)
-    Flux_Detrended = np.copy(f_t)
 
-    np.savetxt(os.path.join(outputfolder, 'CentroidDetrended.txt'),np.transpose([t,f_t]),header='Time, Flux')
-    [t,f_t] = centroidfit.clean_data(t,f_t) # do a bit of cleaning
-    np.savetxt(os.path.join(outputfolder, 'Cleaned.txt'),np.transpose([t,f_t]),header='Time, Flux')
+  T_Detrended = np.copy(t)
+  Flux_Detrended = np.copy(f_t)
+  np.savetxt(os.path.join(outputfolder, 'CentroidDetrended.txt'),np.transpose([t,f_t]),header='Time, Flux')
+  [t,f_t] = centroidfit.clean_data(t,f_t) # do a bit of cleaning
+  np.savetxt(os.path.join(outputfolder, 'Cleaned.txt'),np.transpose([t,f_t]),header='Time, Flux')
 
-    T_Cleaned = np.copy(t)
-    Flux_Cleaned = np.copy(f_t)
+  T_Cleaned = np.copy(t)
+  Flux_Cleaned = np.copy(f_t)
 
-    pl.figure(figsize=(15,10))
+  pl.figure(figsize=(15,10))
+  pl.subplot(3,1,1)
+  pl.plot(T_Raw, Flux_Raw, "ko", MarkerSize=2)
+  pl.ylabel("Flux Counts")
+  pl.title("Raw Flux")
 
-    pl.subplot(3,1,1)
-    pl.plot(T_Raw, Flux_Raw, "ko", MarkerSize=2)
-    pl.ylabel("Flux Counts")
-    pl.title("Raw Flux")
+  pl.subplot(3,1,2)
+  pl.plot(T_Detrended, Flux_Detrended, "ko", MarkerSize=2)
+  pl.ylabel("Flux Counts")
+  pl.title("Detrended Flux")
 
-    pl.subplot(3,1,2)
-    pl.plot(T_Detrended, Flux_Detrended, "ko", MarkerSize=2)
-    pl.ylabel("Flux Counts")
-    pl.title("Detrended Flux")
+  pl.subplot(3,1,3)
+  pl.plot(T_Cleaned, Flux_Cleaned, "ko", MarkerSize=2)
+  pl.xlabel("Time (days)")
+  pl.ylabel("Flux Counts")
+  pl.title("Cleaned Flux")
 
-    pl.subplot(3,1,3)
-    pl.plot(T_Cleaned, Flux_Cleaned, "ko", MarkerSize=2)
-    pl.xlabel("Time (days)")
-    pl.ylabel("Flux Counts")
-    pl.title("Cleaned Flux")
+  pl.suptitle(starname)
+  pl.savefig(outputfolder+"/DiagnosticPlot.png")
+  pl.close()
+  del T_Raw, T_Detrended, T_Cleaned, Flux_Raw, Flux_Detrended, Flux_Cleaned
 
-    pl.suptitle(starname)
-    pl.savefig(outputfolder+"/DiagnosticPlot.png")
-    pl.close()
-    del T_Raw, T_Detrended, T_Cleaned, Flux_Raw, Flux_Detrended, Flux_Cleaned
-  else:
-    [t,f_t] = np.loadtxt(os.path.join(outputfolder, 'CentroidDetrended.txt'),unpack=True,usecols=(0,1))
+  folded,f_t_folded,period,freqlist,powers = periodfinder.get_period(t,f_t,outputpath=outputpath,starname=starname,get_mandelagolmodel=False)
+  np.savetxt(os.path.join(outputfolder, 'PowerSpectrum.txt'),np.transpose([freqlist,powers]),header='Frequencies, Powers')
+  periodfinder.make_combo_figure(filepath,t,f_t,period,freqlist,powers,starname=starname,outputpath=outputpath)
 
-  if find_transits:
-    folded,f_t_folded,period,freqlist,powers = periodfinder.get_period(t,f_t,outputpath=outputpath,starname=starname,get_mandelagolmodel=False)
-    np.savetxt(os.path.join(outputfolder, 'PowerSpectrum.txt'),np.transpose([freqlist,powers]),header='Frequencies, Powers')
-    periodfinder.make_combo_figure(filepath,t,f_t,period,freqlist,powers,starname=starname,outputpath=outputpath)
 
   TimeTaken = time.time() - InitialTime
   RecordFile = open(outputpath+"/RunSummary.csv","a")

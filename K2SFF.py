@@ -70,88 +70,17 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield list(l[i:i+n])
 
-def median_filter(time,data,binsize=100):
-  # do a running median filter dividing all data points by the median of their immediate surroundings
-  i = 0
-  data_filtered = []
-  while i < len(time):
-	  bin_begin = max(0, int(i - binsize/2))
-	  bin_end = int(min(len(time),(i+binsize/2)))
-	  the_bin = data[bin_begin:bin_end]
-	  the_bin = sorted(the_bin)
-	  median = np.median(the_bin) #[len(the_bin)/2]
-	  data_filtered.append(data[i]/median)
-	  i = i + 1
-  return data_filtered
-
-def sff_residual(params,time,data,s,X, Y, robust=True):
-  #
-  # residual function used for calculating a fit to centroid (and time), borrowed from reducing data for Spitzer
-  #
-
-  # unpack all parameters (note: some may be fixed rather than variable)
-  S1 = params['S1'].value
-  S2 = params['S2'].value
-  S3 = params['S3'].value
-  X1 = params['X1'].value
-  X2 = params['X2'].value
-  X3 = params['X3'].value
-  Y1 = params['Y1'].value
-  Y2 = params['Y2'].value
-  Y3 = params['Y3'].value
-  T0 = params['T0'].value
-  T1 = params['T1'].value
-  T2 = params['T2'].value
-  T3 = params['T3'].value
-  T4 = params['T4'].value
-  TsinAmp = params['TsinAmp'].value
-  TsinOff = params['TsinOff'].value
-
-  mean_s = np.mean(s)
-  mean_X = np.mean(X)
-  mean_Y = np.mean(Y)
-  time0 = time[0] - 1.#np.array(1994.0) #time[0]-1.
-
-  model = (T0 + TsinAmp*np.sin((time-time0)+TsinOff) + T1*(time-time0) + T2*((time-time0)**2.) + T3*((time-time0)**3.) + T4*((time-time0)**4.) + S1*(s-mean_s) + S2*((s-mean_s)**2) + S3*((s-mean_s)**3) + X1*(X-mean_X) + X2*((X-mean_X)**2) + X3*((X-mean_X)**3)+ Y1*(Y-mean_Y) + Y2*((Y-mean_Y)**2) + Y3*((Y-mean_Y)**3))
-
-  residual = np.array(data-model)
-
-  if robust:
-    # calculate residual in a robust way
-    residual = residual[np.abs(residual) < np.mean(residual) + 3.*np.std(residual)]
-    #if len(residual2) >= 15:
-    #    residual = residual2
-  return residual
 
 
 def sff_fit(time,flux,Xc,Yc,starname='',outputpath='',chunksize=200,  PolyDeg=5):
   #
   # Fit a polynomial to the data and return corrected data
   #
+  print "Mine SFF"
   outputfolder = os.path.join(outputpath,str(starname))
 
   flux = np.array(flux) / np.median(flux)
 
-  params = Parameters() # fitting parameters, set to vary=false to fix
-  params.add('X1', value = 0.,vary=True)
-  params.add('X2', value = 0.,vary=True)
-  params.add('X3', value = 0.,vary=True)
-  params.add('Y1', value = 0.,vary=True)
-  params.add('Y2', value = 0.,vary=True)
-  params.add('Y3', value = 0.,vary=True)
-  params.add('S1', value = 0.,vary=True)
-  params.add('S2', value = 0.,vary=True)
-  params.add('S3', value = 0.,vary=True)
-  params.add('T0', value = 0.,vary=True)
-  params.add('T1', value = 0.,vary=True)
-  params.add('T2', value = 0.,vary=True) #
-  params.add('T3', value = 0.,vary=True) #
-  params.add('T4', value = 0.,vary=False)
-  params.add('TsinAmp', value = 0.,vary=False)
-  params.add('TsinOff', value = 0.,vary=False)
-  # first divide data in different chunks
-
-  print chunksize
   time_chunks = list(chunks(time,chunksize))
   flux_chunks = list(chunks(flux,chunksize))
   Xc_chunks = list(chunks(Xc,chunksize))
@@ -266,10 +195,5 @@ def sff_fit(time,flux,Xc,Yc,starname='',outputpath='',chunksize=200,  PolyDeg=5)
       pl.plot(t,FluxPredicted,"bo")
       pl.show()
       '''
-  pl.plot()
-  pl.plot()
-  Diff = np.diff(TotalArcLength)
-  pl.figure()
-  pl.plot(Diff,"k.", MarkerSize=2)
-  pl.show()
+
   return [CorrectedTime,CorrectedFlux]

@@ -17,21 +17,21 @@ from numpy import mean, cov, cumsum, dot, linalg, size, flipud
 
 def sliceIterator(lst, sliceLen):
     for i in range(len(lst) - sliceLen + 1):
-        yield lst[i:i + sliceLen]
+        yield list(lst[i:i + sliceLen])
 
 def chunks(l, n):
     """ Yield successive n-sized chunks from l.
     """
     for i in xrange(0, len(l), n):
-        yield l[i:i+n]
+        yield list(l[i:i+n])
 
 def median_filter(time,data,binsize=100):
   # do a running median filter dividing all data points by the median of their immediate surroundings
   i = 0
   data_filtered = []
   while i < len(time):
-	  bin_begin = max(0, (i - binsize/2))
-	  bin_end = min(len(time),(i+binsize/2))
+	  bin_begin = int(max(0, (i - binsize/2)))
+	  bin_end = int(min(len(time),(i+binsize/2)))
 	  the_bin = data[bin_begin:bin_end]
 	  the_bin = sorted(the_bin)
 	  median = np.median(the_bin) #[len(the_bin)/2]
@@ -263,28 +263,37 @@ def sff_fit(time,data,Xc,Yc,starname='',outputpath='',chunksize=300, niter = 10,
   params.add('TsinAmp', value = 0.,vary=False)
   params.add('TsinOff', value = 0.,vary=False)
   # first divide data in different chunks
-  chunksize=chunksize
+
   time_chunks = list(chunks(time,chunksize))
   data_chunks = list(chunks(data,chunksize))
   Xc_chunks = list(chunks(Xc,chunksize))
   Yc_chunks = list(chunks(Yc,chunksize))
 
+  if len(time_chunks[-1])<chunksize/2.5:
+      time_chunks[-2].extend(time_chunks[-1])
+      time_chunks.pop()
+      data_chunks[-2].extend(data_chunks[-1])
+      data_chunks.pop()
+      Xc_chunks[-2].extend(Xc_chunks[-1])
+      Xc_chunks.pop()
+      Yc_chunks[-2].extend(Yc_chunks[-1])
+      Yc_chunks.pop()
   i = 0
   corrected_data = []
   corrected_time = []
   while i < len(time_chunks):
-    chunktime = time_chunks[i]
-    chunkdata = data_chunks[i]
-    chunkX = Xc_chunks[i]
-    chunkY = Yc_chunks[i]
+    chunktime = np.array(time_chunks[i])
+    chunkdata = np.array(data_chunks[i])
+    chunkX = np.array(Xc_chunks[i])
+    chunkY = np.array(Yc_chunks[i])
     cenmask = np.where((abs(chunkX - np.mean(chunkX)) <= 3.0*np.std(chunkX)) & (abs(chunkY - np.mean(chunkY)) <= 3.0*np.std(chunkY)))
     chunkX  = chunkX[cenmask]
     chunkY = chunkY[cenmask]
     chunktime = chunktime[cenmask]
     chunkdata = chunkdata[cenmask]
+
     coeffs = np.polyfit(chunkX, chunkY, deg = 2)
     fitcenter = np.polyval(coeffs,chunkX)
-
     time_good = np.array([],'float64')
     centr1_good = np.array([],'float32')
     centr2_good = np.array([],'float32')
@@ -315,7 +324,6 @@ def sff_fit(time,data,Xc,Yc,starname='',outputpath='',chunksize=300, niter = 10,
 
     fit = minimize(sff_residual, params, args=(interptime,interpflux,s,interpX, interpY,False))#,method='leastsq') # first fit is not robust, to get a good first estimate
     fit = minimize(sff_residual, fit.params, args=(interptime,interpflux,s,interpX, interpY, True))
-
 
     corrflux = sff_residual(fit.params,interptime,interpflux,s,interpX, interpY, robust=False)
     pl.figure('Data correction SFF ' + str(starname))

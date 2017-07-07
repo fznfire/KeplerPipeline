@@ -15,7 +15,7 @@ import warnings
 warnings.filterwarnings("ignore") #To suppress the warning. Comment this to see the range of warning.
 
 
-CampaignNum = 6
+CampaignNum = 8
 inputpath = '/Volumes/westep/prajwal/Campaign'+str(CampaignNum)+'/*.fits'
 SubFolder = 'Campaign'+str(CampaignNum)
 

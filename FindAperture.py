@@ -27,20 +27,23 @@ def ApertureOutline(StdAper,KepMag, AvgFlux, outputfolder, starname, XPos, YPos)
         l.append((np.nan, np.nan))
 
     segments = np.array(l)
+
+    YCen, XCen = measurements.center_of_mass(StdAper*AvgFlux)
     pl.figure(figsize=(10,10))
     pl.imshow(AvgFlux,cmap='gray',norm=colors.PowerNorm(gamma=1./2.),interpolation='none')
     pl.colorbar()
     pl.plot(segments[:,0]-0.5, segments[:,1]-0.5, color=(1,0,0,.5), linewidth=3)
     pl.plot(XPos, YPos, "ro")
+    pl.plot(XCen,YCen,"go")
     pl.title(starname+":"+str(KepMag))
     pl.gca().invert_yaxis()
     pl.axis('equal')
     pl.tight_layout()
-    pl.savefig(outputfolder+"/"+starname+".png")
+    pl.savefig(outputfolder+"/"+starname+".png", bbox_inches='tight')
     pl.close()
 
 def Case1(AvgFlux,X,Y, StdCutOff=1):
-    #Use laplacian stencil to find all the stars in the scenes
+    #returns the maximum aperture
     ExpectedFluxUnder = 1.1*np.median(AvgFlux)
 
     #find a standard Aperture
@@ -53,18 +56,22 @@ def Case1(AvgFlux,X,Y, StdCutOff=1):
     BkgStd = np.std(BkgArray)
     ExpectedFluxUnder = ExpectedFluxUnder+BkgStd*StdCutOff
 
-    #find a standard Aperture
-    AllAper = (AvgFlux>ExpectedFluxUnder)
-    AllAper, num = measurements.label(AllAper) # this numbers the different apertures distinctly
-
-    Distance  = 5.0 #Unacceptable distance
-    for i in range(1,num+1):
-        TempAper = (AllAper == i)
-        YCen, XCen = measurements.center_of_mass(TempAper*AvgFlux)
-        TempDist = np.sqrt((X-XCen)**2+(Y-YCen)**2)
-        if TempDist<Distance:
-            Distance = TempDist
-            StdAper = TempAper
+    #return the biggest aperture
+    TotalAper = 1.0*(AvgFlux>ExpectedFluxUnder)
+    lw, num = measurements.label(TotalAper) # this numbers the different apertures distinctly
+    area = measurements.sum(TotalAper, lw, index=np.arange(lw.max() + 1)) # this measures the size of the apertures
+    TotalAper = area[lw].astype(int) # this replaces the 1s by the size of the aperture
+    StdAper = (TotalAper >= np.max(TotalAper))*1  #backend process
+    Distance = 3.5
+    for i in range(1,np.max(TotalAper)+1):
+        TempAper = (TotalAper==i)*1
+        if np.sum(TempAper)>3:
+            YCen, XCen = measurements.center_of_mass(TempAper*AvgFlux)
+            TempDist = np.sqrt((X-XCen)**2+(Y-YCen)**2)
+            if TempDist<Distance:
+                Distance = TempDist
+                StdAper = TempAper
+    YCen, XCen = measurements.center_of_mass(StdAper*AvgFlux)
     return StdAper
 
 
@@ -89,19 +96,17 @@ def Case2(AvgFlux,X,Y,MedianTimes=1.5):
       raise Exception('Failed to find the aperture')
     return StdAper
 
-def Case3(AvgFlux,X,Y,StdTime=0.5):
+def Case3(AvgFlux,X,Y,StdCutOff=3.0):
     #Use laplacian stencil to find all the stars in the scenes
     Median = np.median(AvgFlux)
 
-    #find a standard Aperture
-    AllAper = (AvgFlux>Median)
+    #find a background
+    BkgAper = (AvgFlux<Median)
 
     FluxArray = AvgFlux[np.nonzero(BkgAper*AvgFlux)]
     Std = np.std(FluxArray)
 
-    AllAper = AvgFlux>(Std*StdTime+Median)
-
-
+    AllAper = AvgFlux>(Std*StdCutOff+Median)
     AllAper, num = measurements.label(AllAper) # this numbers the different apertures distinctly
 
     Distance  = 5.0 #Unacceptable distance
@@ -115,7 +120,9 @@ def Case3(AvgFlux,X,Y,StdTime=0.5):
     return StdAper
 
 
-def Case4(AvgFlux, X,Y,Spacing=1):
+
+
+def Case5(AvgFlux, X,Y,Spacing=1):
     Xint, Yint = [int(round(X,0)), int(round(Y,0))]
     BkgVal = np.median(AvgFlux)
 
@@ -123,6 +130,8 @@ def Case4(AvgFlux, X,Y,Spacing=1):
     YValues = np.arange(Yint-Spacing,Yint+Spacing+1,1)
 
     ReferenceValue = 0
+    #TODO Change tolerance value
+    Dist_tolerance = 1.25
     for i,j in list(itertools.product(XValues,YValues)):
         try:
             TempAper2_2 = np.zeros(len(AvgFlux[0])*len(AvgFlux)).reshape(len(AvgFlux),len(AvgFlux[0]))
@@ -130,7 +139,7 @@ def Case4(AvgFlux, X,Y,Spacing=1):
             Signal = np.sum(AvgFlux*TempAper2_2)-4.*BkgVal
             Y_Cen, X_Cen = measurements.center_of_mass(AvgFlux*TempAper2_2)
             Distance = np.sqrt((X- X_Cen)**2+(Y- Y_Cen)**2)
-            if Distanc2<1.25:
+            if Distanc2<Dist_tolerance:
                 Value2_2 = Signal/np.sqrt(Signal+4.*BkgVal)
             else:
                 Value2_2 = 1
@@ -143,7 +152,7 @@ def Case4(AvgFlux, X,Y,Spacing=1):
             Signal = np.sum(AvgFlux*TempAper2_3)-6.*BkgVal
             Y_Cen, X_Cen = measurements.center_of_mass(AvgFlux*TempAper2_3)
             Distance = np.sqrt((X- X_Cen)**2+(Y- Y_Cen)**2)
-            if Distance<1.25:
+            if Distance<Dist_tolerance:
                 Value2_3 = Signal/np.sqrt(Signal+6.*BkgVal)
             else:
                 Value2_3 = 2
@@ -156,7 +165,7 @@ def Case4(AvgFlux, X,Y,Spacing=1):
             Value3_2 = np.sum(AvgFlux*TempAper3_2)-6.*BkgVal
             Y_Cen, X_Cen = measurements.center_of_mass(AvgFlux*TempAper3_2)
             Distance = np.sqrt((X- X_Cen)**2+(Y- Y_Cen)**2)
-            if Distance<1.25:
+            if Distance<Dist_tolerance:
                 Value3_2 = Signal/np.sqrt(Signal+6.*BkgVal)
             else:
                 Value3_2 = 3
@@ -169,7 +178,7 @@ def Case4(AvgFlux, X,Y,Spacing=1):
             Signal = np.sum(AvgFlux*TempAper3_3)-9.*BkgVal
             Y_Cen, X_Cen = measurements.center_of_mass(AvgFlux*TempAper3_3)
             Distance = np.sqrt((X- X_Cen)**2+(Y- Y_Cen)**2)
-            if Distance<1.25:
+            if Distance<Dist_tolerance:
                 Value3_3 = Signal/np.sqrt(Signal+9.*BkgVal)
             else:
                 Value3_3 = 4
@@ -184,7 +193,7 @@ def Case4(AvgFlux, X,Y,Spacing=1):
             Signal = np.sum(AvgFlux*TempAper_Star)-5.*BkgVal
             Y_Cen, X_Cen = measurements.center_of_mass(AvgFlux*TempAper_Star)
             Distance = np.sqrt((X- X_Cen)**2+(Y- Y_Cen)**2)
-            if Distance<1.25:
+            if Distance<Dist_tolerance:
                 Value_Star = Signal/np.sqrt(Signal+5.*BkgVal)
             else:
                 Value_Star = 5
@@ -199,8 +208,30 @@ def Case4(AvgFlux, X,Y,Spacing=1):
             RefX, RefY = [i,j]
             TypeAperture = np.where(MaxValue == Values)[0][0]
 
-    Aperture = np.zeros(len(AvgFlux[0])*len(AvgFlux)).reshape(len(AvgFlux),len(AvgFlux[0]))
+    if ReferenceValue<7:
+        #Find suitable 4 by 4 aperture based on distance
+        print "-"*50
+        print "Failed to find a good aperture"
+        print "-"*50
 
+        #Aperture just based on the distance
+        RefX, RefY = [Xint, Yint]
+        DistanceRef = 5
+        for i,j in list(itertools.product(XValues,YValues)):
+          try:
+            TempAper2_2 = np.zeros(len(AvgFlux[0])*len(AvgFlux)).reshape(len(AvgFlux),len(AvgFlux[0]))
+            TempAper2_2[i:i+2, j:j+2] = 1
+            Y_Cen, X_Cen = measurements.center_of_mass(AvgFlux*TempAper2_2)
+            Distance = np.sqrt((X- X_Cen)**2+(Y- Y_Cen)**2)
+            if Distance<DistanceRef:
+                RefX,RefY = [i,j]
+                DistanceRef = Distance
+          except:
+            pass
+        TypeAperture = 0
+
+
+    Aperture = np.zeros(len(AvgFlux[0])*len(AvgFlux)).reshape(len(AvgFlux),len(AvgFlux[0]))
     i,j = [RefX, RefY]
     if TypeAperture == 0:
         Aperture[i:i+2,j:j+2] = 1
@@ -222,7 +253,7 @@ def Case4(AvgFlux, X,Y,Spacing=1):
 
 
 
-def FindAperture(filepath='',outputpath='',SubFolder=''):
+def FindAperture(filepath='',outputpath='',SubFolder='',CampaignNum='1'):
     '''
     Centroid are calculated by center of mass function from scipy
     Background are fitting by spline.
@@ -233,7 +264,6 @@ def FindAperture(filepath='',outputpath='',SubFolder=''):
     starname = str(re.search('[0-9]{9}',filepath).group(0))
 
     #read the FITS file
-    print "Stage 1"
     try:
         FitsFile = fits.open(filepath,memmap=True) #opening the fits file
     except:
@@ -241,33 +271,86 @@ def FindAperture(filepath='',outputpath='',SubFolder=''):
 
 
     #extract the vital information from the fits file
+    TotalDate = np.array(FitsFile[1].data['Time'])
     TotalFlux = FitsFile[1].data['Flux']
     Quality = FitsFile[1].data['Quality']
-
     KepMag = FitsFile[0].header['Kepmag']
-
     X = FitsFile[2].header['CRPIX1']  - 1.0 #-1 to account for the fact indexing begins at 0 in python
     Y = FitsFile[2].header['CRPIX2'] - 1.0
     FitsFile.close()
 
     Index = np.where(Quality==0)
-    GoodFlux = operator.itemgetter(*Index[0])(TotalFlux)
-    AvgFlux = np.nanmedian(GoodFlux, axis=0)
-    MedianValue = np.nanmedian(AvgFlux)-0.5
-    AvgFlux[np.isnan(AvgFlux)] = MedianValue
+    GoodFlux = np.array(operator.itemgetter(*Index[0])(TotalFlux))
+    TotalDate = np.array(operator.itemgetter(*Index[0])(TotalDate))
 
-    print "Stage 2"
+    if CampaignNum>8:
+        AvgFlux = np.nanmedian(GoodFlux, axis=0)
+        MedianValue = np.nanmedian(AvgFlux)-0.5
+        AvgFlux[np.isnan(AvgFlux)] = MedianValue
 
-    if KepMag<17:
-        #StdAper = Case1(AvgFlux,X,Y,StdCutOff=3.0)*1 #use standard deviation of Background to cut it off
-        #StdAper = Case2(AvgFlux,X,Y,MedianTimes=1.25) #Use the median value in the aperture
-        #StdAper = Case3(AvgFlux,X,Y,StdCutOff=1.0) #Use the flux value of the star as cut off
-        StdAper = Case4(AvgFlux, X, Y, Spacing=2)*1 #
+        if "1_lpd" in filepath:
+            starname = starname+"_1"
+        else:
+
+            starname = starname+"_2"
+        if KepMag<16:
+            StdAper = Case1(AvgFlux,X,Y,StdCutOff=4.5)*1 #use standard deviation of Background to cut it off
+            #StdAper = Case2(AvgFlux,X,Y,MedianTimes=2.0) #Use the median value in the aperture
+            #StdAper = Case3(AvgFlux,X,Y,StdCutOff=0.75) #Use the flux value of the star as cut off
+            #StdAper = Case5(AvgFlux, X, Y, Spacing=3)*1 #
+        else:
+            StdAper = Case5(AvgFlux, X, Y, Spacing=2)*1 #
+        ApertureOutline(StdAper,KepMag, AvgFlux, outputfolder, starname, X, Y)
+        np.savetxt(outputfolder+"/"+starname+".txt",StdAper)
+
     else:
-        StdAper = Case4(AvgFlux, X, Y, Spacing=2)*1 #
+         #Two aperture method
+         DateHalf = (max(TotalDate)+min(TotalDate))/2.0
 
-    ApertureOutline(StdAper,KepMag, AvgFlux, outputfolder, starname, X, Y)
-    np.savetxt(outputfolder+"/"+starname+".txt",StdAper)
+         FirstHalf = TotalDate<DateHalf
+         SecondHalf = TotalDate>DateHalf
+
+         AvgFlux1 = np.nanmedian(GoodFlux[FirstHalf], axis=0)
+         MedianValue1 = np.nanmedian(GoodFlux[FirstHalf])-0.5
+         AvgFlux1[np.isnan(AvgFlux1)] = MedianValue1
+
+         AvgFlux2 = np.nanmedian(GoodFlux[SecondHalf], axis=0)
+         MedianValue2 = np.nanmedian(GoodFlux[SecondHalf])-0.5
+         AvgFlux2[np.isnan(AvgFlux2)] = MedianValue2
+
+
+         if KepMag<17:
+             StdAper1 = Case1(AvgFlux1,X,Y,StdCutOff=2.0)*1 #use standard deviation of Background to cut it off
+             StdAper2 = Case1(AvgFlux2,X,Y,StdCutOff=2.0)*1
+             #StdAper = Case2(AvgFlux,X,Y,MedianTimes=1.25) #Use the median value in the aperture
+             #StdAper = Case3(AvgFlux,X,Y,StdCutOff=1.0) #Use the flux value of the star as cut off
+             #StdAper = Case4(AvgFlux, X, Y, Spacing=2)*1 #
+         else:
+             StdAper1 = Case5(AvgFlux1, X, Y, Spacing=2)*1 #
+             StdAper2 = Case5(AvgFlux2, X, Y, Spacing=2)*1
+         ApertureOutline(StdAper1,KepMag, AvgFlux1, outputfolder, starname+"_1", X, Y)
+         ApertureOutline(StdAper2,KepMag, AvgFlux2, outputfolder, starname+"_2", X, Y)
+
+         pl.figure(figsize=(16,16))
+         pl.subplot(221)
+         pl.imshow(AvgFlux1,cmap='gray',norm=colors.PowerNorm(gamma=1./2.),interpolation='none')
+         pl.title(str(np.sum(FirstHalf)))
+         pl.colorbar()
+         pl.subplot(222)
+         pl.imshow(AvgFlux2,cmap='gray',norm=colors.PowerNorm(gamma=1./2.),interpolation='none')
+         pl.title(str(np.sum(SecondHalf)))
+         pl.colorbar()
+         pl.subplot(223)
+         pl.imshow(StdAper1,cmap='gray',norm=colors.PowerNorm(gamma=1./2.),interpolation='none')
+         pl.title(str(np.sum(FirstHalf)))
+         pl.subplot(224)
+         pl.imshow(StdAper2,cmap='gray',norm=colors.PowerNorm(gamma=1./2.),interpolation='none')
+         pl.title(str(np.sum(SecondHalf)))
+         pl.suptitle(starname+":"+str(KepMag))
+         pl.savefig(outputfolder+"/"+starname+"_twohalf_diag.png", bbox_inches='tight')
+
+         np.savetxt(outputfolder+"/"+starname+"_1.txt",StdAper1)
+         np.savetxt(outputfolder+"/"+starname+"_2.txt",StdAper2)
 
 
     SummaryFile = open(outputfolder+".csv",'a')

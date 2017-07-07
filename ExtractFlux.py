@@ -32,7 +32,7 @@ def ApertureOutline(StdAper,AvgFlux, outputfolder, X,Y):
 
     segments = np.array(l)
     pl.figure()
-    pl.imshow(StdAper,cmap='gray',norm=colors.PowerNorm(gamma=1./2.),interpolation='none')
+    pl.imshow(AvgFlux,cmap='gray',norm=colors.PowerNorm(gamma=1./2.),interpolation='none')
     pl.colorbar()
     pl.plot(segments[:,0]-0.5, segments[:,1]-0.5, color=(1,0,0,.5), linewidth=3)
     pl.plot(X,Y, "ro")
@@ -53,7 +53,7 @@ def RawFluxDiagram(Quality,TotalDate,FluxArray,outputfolder):
     ColorList = ["black","orange","blue","green", "cyan", "magenta", "red"]
     MarkerList = ['o','^','*']
     pl.figure(figsize=(16,8))
-
+    pl.clf()
     for i in range(22):
         pl.plot(TotalDate[IndexArray[i]], FluxArray[IndexArray[i]],label=str(i)+":"+str(np.sum(IndexArray[i])), MarkerSize=3, marker = MarkerList[i%3], color=ColorList[i%7], linestyle='none')
     pl.legend(loc='best')
@@ -70,6 +70,196 @@ def RawFluxDiagram(Quality,TotalDate,FluxArray,outputfolder):
     pl.tight_layout()
     pl.savefig(outputfolder+"/GoodDatavsBadData.png")
     pl.close()
+
+
+def PredeterminedAperture(filepath='',outputpath='',plot=False, SubFolder=''):
+    '''
+    Centroid are calculated by center of mass function from scipy
+    Background are fitting by spline.
+    '''
+    print "Running Predetermined Aperture"
+    #extracting the starname
+    starname = str(re.search('[0-9]{9}',filepath).group(0))
+    Campaign = re.search('c[0-9]{2}',filepath).group(0)
+    Campaign = int(Campaign[1:])
+
+    print Campaign
+
+    #if short cadence data
+    if "spd" in filepath:
+      starname = starname+"_spd"
+
+
+    #constructing the output folder path
+    outputfolder = os.path.join(outputpath,starname)
+
+    #read the FITS file
+    try:
+        FitsFile = fits.open(filepath,memmap=True) #opening the fits file
+    except:
+        raise Exception('Error opening the file')
+
+    #make the directory if the directory does not exist
+    TestPaths = [outputpath,outputfolder]
+    for path in TestPaths:
+        if not os.path.exists(path):
+            os.system("mkdir %s" %(path))
+
+    #extract the vital information from the fits file
+    KeplerID = FitsFile[0].header['KEPLERID']
+    print "KEPLERID:", KeplerID
+    TotalDate = FitsFile[1].data['Time']
+    TotalFlux = FitsFile[1].data['Flux']
+    Quality = FitsFile[1].data['Quality']
+    RA = FitsFile[0].header['RA_OBJ']
+    Dec = FitsFile[0].header['DEC_OBJ']
+    KepMag = FitsFile[0].header['Kepmag']
+    print "Kepler Magnitude:", KepMag
+    X = FitsFile[2].header['CRPIX1']  - 1.0 #-1 to account for the fact indexing begins at 0 in python
+    Y = FitsFile[2].header['CRPIX2'] - 1.0
+
+
+
+    #Writing the information to the summary
+    if (Campaign>8) and ("2_" in filepath):
+        pass
+    else:
+        RecordFile = open(outputpath+"/RunSummary.csv","a")
+        RecordFile.write(starname+','+str(RA)+','+str(Dec)+','+str(KepMag)+',')
+        RecordFile.close()
+
+
+
+    #initiating array to collect values
+    FluxArray = []
+    X_Pos_Array = []
+    Y_Pos_Array = []
+    BkgArray = []
+    FluxIndex = []
+
+
+    if starname.endswith('_spd'):
+        StarAperName = starname[:-4]
+    else:
+        StarAperName = starname
+
+    if SubFolder:
+        AperLocation = "Apertures/"+SubFolder+"/"
+    else:
+        AperLocation = "Apertures/"+"Campaign"+str(Campaign)+"/"
+
+    if Campaign>8:
+        if "1_" in filepath:
+            StarAperName = StarAperName+"_1"
+        else:
+            StarAperName = StarAperName+"_2"
+        StdAper = np.loadtxt(AperLocation+StarAperName+".txt")
+    else:
+        StdAper_1 = np.loadtxt(AperLocation+StarAperName+"_1.txt")
+        StdAper_2 = np.loadtxt(AperLocation+StarAperName+"_2.txt")
+
+
+
+    #copy the aperture file from the aperture file to the local file
+    os.system("cp %s/*%s*.png %s" %(AperLocation,StarAperName,outputfolder))
+
+    if Campaign>8:
+        for i in range(len(TotalFlux)):
+            CurrentFrame = TotalFlux[i]
+            CurrentFrame[np.isnan(CurrentFrame)] = 0.0 #converting all nan to zero
+            Flux = CurrentFrame*StdAper
+            BkgMedian = np.median((1-StdAper)*CurrentFrame)
+
+            #Getting the total value of the Flux
+            Background = np.sum(StdAper)*BkgMedian
+            FluxValue = np.sum(Flux)
+            FluxArray.append(FluxValue)
+            BkgArray.append(Background)
+            if FluxValue>0 and Quality[i]==0:
+                YPos, XPos = measurements.center_of_mass(Flux)
+                X_Pos_Array.append(XPos)
+                Y_Pos_Array.append(YPos)
+                FluxIndex.append(True)
+            else:
+                FluxIndex.append(False)
+    else:
+        #for campaign 0-8
+        DateHalf = (max(TotalDate)+min(TotalDate))/2.0
+        for i in range(len(TotalFlux)):
+            CurrentFrame = TotalFlux[i]
+            CurrentFrame[np.isnan(CurrentFrame)] = 0.0 #converting all nan to zero
+            CurrentDate = TotalDate[i]
+            if CurrentDate<DateHalf:
+                StdAper = StdAper_1
+            else:
+                StdAper = StdAper_2
+            Flux = CurrentFrame*StdAper
+            BkgMedian = np.median((1-StdAper)*CurrentFrame)
+
+            #Getting the total value of the Flux
+            Background = np.sum(StdAper)*BkgMedian
+            FluxValue = np.sum(Flux)
+            FluxArray.append(FluxValue)
+            BkgArray.append(Background)
+            if FluxValue>0 and Quality[i]==0:
+                YPos, XPos = measurements.center_of_mass(Flux)
+                X_Pos_Array.append(XPos)
+                Y_Pos_Array.append(YPos)
+                FluxIndex.append(True)
+            else:
+                FluxIndex.append(False)
+
+
+    RawFluxDiagram(Quality,TotalDate,FluxArray,outputfolder)
+    FluxIndex = np.array(FluxIndex)
+    FluxArray = np.array(FluxArray)
+    BkgArray = np.array(BkgArray)
+
+    FluxArray = FluxArray[FluxIndex]
+    BkgArray = BkgArray[FluxIndex]
+    DateArray = TotalDate[FluxIndex]
+    X_Pos_Array =  np.array(X_Pos_Array)
+    Y_Pos_Array = np.array(Y_Pos_Array)
+
+    def moving_average(series, sigma=3):
+        b = gaussian(39, sigma)
+        average = filters.convolve1d(series, b/b.sum())
+        var = filters.convolve1d(np.power(series-average,2), b/b.sum())
+        return average, var
+
+    _, var = moving_average(BkgArray)
+    if "spd" in starname:
+        factor = 0.75
+    else:
+        factor = 0.9
+    spl =  UnivariateSpline(DateArray, BkgArray, w=factor/np.sqrt(var))
+    SplEstimatedBkg = spl(DateArray)
+
+
+
+    #saving diagnostic plot
+    pl.figure(figsize=(20,10))
+    pl.subplot(2,1,1)
+    pl.plot(DateArray, BkgArray,"k.", MarkerSize=2)
+    pl.plot(DateArray, SplEstimatedBkg,"g-",lw=2)
+    pl.xlabel('Time (days)')
+    pl.ylabel('Flux Count')
+    pl.title('Background')
+
+    pl.subplot(2,1,2)
+    pl.plot(DateArray, FluxArray,"ko",MarkerSize=2)
+    pl.title('Flux Reading')
+    pl.xlabel('Time (days)')
+    pl.ylabel('Flux Count')
+
+    pl.suptitle(str(KeplerID)+" Diagnostic")
+    pl.savefig(outputfolder+"/Background.png")
+    pl.close()
+
+    return DateArray, FluxArray, X_Pos_Array, Y_Pos_Array
+
+
+
 
 
 
@@ -218,7 +408,7 @@ def ApertureOnTheRun(filepath='',outputpath='',plot=False,Campaign=None, Quality
         BkgArray.append(Background)
 
 
-        if FluxValue>0 and Quality[i]==0:
+        if FluxValue>0 and (Quality[i]==0 or Quality[i]==128):
             YPos, XPos = measurements.center_of_mass(Flux)
             X_Pos_Array.append(XPos)
             Y_Pos_Array.append(YPos)
@@ -277,161 +467,6 @@ def ApertureOnTheRun(filepath='',outputpath='',plot=False,Campaign=None, Quality
 
 
 
-
-
-
-
-
-def PredeterminedAperture(filepath='',outputpath='',plot=False,Campaign=None, SubFolder=''):
-    '''
-    Centroid are calculated by center of mass function from scipy
-    Background are fitting by spline.
-    '''
-
-    #extracting the starname
-    starname = str(re.search('[0-9]{9}',filepath).group(0))
-
-    #if short cadence data
-    if "spd" in filepath:
-      starname = starname+"_spd"
-
-
-
-    #constructing the output folder path
-    outputfolder = os.path.join(outputpath,starname)
-
-    #read the FITS file
-    try:
-        FitsFile = fits.open(filepath,memmap=True) #opening the fits file
-    except:
-        raise Exception('Error opening the file')
-
-    #make the directory if the directory does not exist
-    TestPaths = [outputpath,outputfolder]
-    for path in TestPaths:
-        if not os.path.exists(path):
-            os.system("mkdir %s" %(path))
-
-    #extract the vital information from the fits file
-    KeplerID = FitsFile[0].header['KEPLERID']
-    print "KEPLERID:", KeplerID
-    TotalDate = FitsFile[1].data['Time']
-    TotalFlux = FitsFile[1].data['Flux']
-    Quality = FitsFile[1].data['Quality']
-    RA = FitsFile[0].header['RA_OBJ']
-    Dec = FitsFile[0].header['DEC_OBJ']
-    KepMag = FitsFile[0].header['Kepmag']
-    print "Kepler Magnitude:", KepMag
-    X = FitsFile[2].header['CRPIX1']  - 1.0 #-1 to account for the fact indexing begins at 0 in python
-    Y = FitsFile[2].header['CRPIX2'] - 1.0
-
-
-
-    #Writing the information to the summary
-    if (Campaign==9 or Campaign==10) and ("2_" in filepath):
-        pass
-    else:
-        RecordFile = open(outputpath+"/RunSummary.csv","a")
-        RecordFile.write(starname+','+str(RA)+','+str(Dec)+','+str(KepMag)+',')
-        RecordFile.close()
-
-
-
-    #initiating array to collect values
-    FluxArray = []
-    X_Pos_Array = []
-    Y_Pos_Array = []
-    BkgArray = []
-    FluxIndex = []
-
-
-    #TODO Verify if the aperture is verifiedloading the predeterined aperture
-    #Determine if the
-    #ApertureSummary = np.loadtxt("Apertures/"+SubFolder+".csv")
-
-    if starname.endswith('_spd'):
-        StarAperName = starname[:-4]
-    else:
-        StarAperName = starname
-    StdAper = np.loadtxt("Apertures/"+SubFolder+"/"+StarAperName+".txt")
-
-    Index = np.where(Quality==0)
-    GoodFlux = operator.itemgetter(*Index[0])(TotalFlux)
-    AvgFlux = np.nanmedian(GoodFlux, axis=0)
-    ApertureOutline(StdAper,AvgFlux, outputfolder, X, Y)
-
-    for i in range(len(TotalFlux)):
-        CurrentFrame = TotalFlux[i]
-        CurrentFrame[np.isnan(CurrentFrame)] = 0.0 #converting all nan to zero
-
-        Flux = CurrentFrame*StdAper
-
-        BkgMedian = np.median((1-StdAper)*CurrentFrame)
-
-        #Getting the total value of the Flux
-        Background = np.sum(StdAper)*BkgMedian
-        FluxValue = np.sum(Flux)
-
-        FluxArray.append(FluxValue)
-        BkgArray.append(Background)
-
-
-        if FluxValue>0 and Quality[i]==0:
-            YPos, XPos = measurements.center_of_mass(Flux)
-            X_Pos_Array.append(XPos)
-            Y_Pos_Array.append(YPos)
-            FluxIndex.append(True)
-        else:
-            FluxIndex.append(False)
-
-
-    RawFluxDiagram(Quality,TotalDate,FluxArray,outputfolder)
-    FluxIndex = np.array(FluxIndex)
-    FluxArray = np.array(FluxArray)
-    BkgArray = np.array(BkgArray)
-
-    FluxArray = FluxArray[FluxIndex]
-    BkgArray = BkgArray[FluxIndex]
-    DateArray = TotalDate[FluxIndex]
-    X_Pos_Array =  np.array(X_Pos_Array)
-    Y_Pos_Array = np.array(Y_Pos_Array)
-
-    def moving_average(series, sigma=3):
-        b = gaussian(39, sigma)
-        average = filters.convolve1d(series, b/b.sum())
-        var = filters.convolve1d(np.power(series-average,2), b/b.sum())
-        return average, var
-
-    _, var = moving_average(BkgArray)
-    if "spd" in starname:
-        factor = 0.75
-    else:
-        factor = 0.9
-    spl =  UnivariateSpline(DateArray, BkgArray, w=factor/np.sqrt(var))
-    SplEstimatedBkg = spl(DateArray)
-
-
-
-    #saving diagnositic plot
-    pl.figure(figsize=(20,10))
-    pl.subplot(2,1,1)
-    pl.plot(DateArray, BkgArray,"k.", MarkerSize=2)
-    pl.plot(DateArray, SplEstimatedBkg,"g-",lw=2)
-    pl.xlabel('Time (days)')
-    pl.ylabel('Flux Count')
-    pl.title('Background')
-
-    pl.subplot(2,1,2)
-    pl.plot(DateArray, FluxArray,"ko",MarkerSize=2)
-    pl.title('Flux Reading')
-    pl.xlabel('Time (days)')
-    pl.ylabel('Flux Count')
-
-    pl.suptitle(str(KeplerID)+" Diagnostic")
-    pl.savefig(outputfolder+"/Background.png")
-    pl.close()
-
-    return DateArray, FluxArray, X_Pos_Array, Y_Pos_Array
 
 
 

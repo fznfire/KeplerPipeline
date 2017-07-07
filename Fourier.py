@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+import matplotlib.pyplot as pl
 #import seaborn
 import matplotlib.pyplot as plt
 from lmfit import minimize, Minimizer, Parameters, Parameter, report_fit
@@ -42,12 +43,12 @@ def DoubleSineFit(Time,Flux,Omega=1,ReportFlag = False):
     '''Method for fitting two Sinusoidal'''
     MinFreq = 1/(Time[-1]-Time[0])
     MaxFreq = 1/(Time[1]-Time[0])
-    AmpGuess = np.std(Flux)*2
+    AmpGuess = max(Flux)-min(Flux)
     params = Parameters()
-    params.add('amp1', value= AmpGuess, min=0)
+    params.add('amp1', value= 5.0, vary=False)#min=0)
     params.add('omega1', value= 10, min = MinFreq, max=MaxFreq)
     params.add('shift1', value= 0, min=-np.pi/2., max=np.pi/2)
-    params.add('amp2',   value= AmpGuess/10, min=0)
+    params.add('amp2',   value= 2.0, vary=False)#min=0)
     params.add('omega2', value= 5, min = MinFreq, max=MaxFreq)
     params.add('shift2', value= 0.0, min=-np.pi/2., max=np.pi/2)
     params.add('offset', value= 1.0, min=0.)
@@ -71,7 +72,7 @@ def SingleSineFit(Time,Flux,Omega=1.0, ReportFlag = False):
     params.add('shift', value= 0.0, min=-np.pi/2., max=np.pi/2)
     params.add('offset', value= MedianFlux, vary=False)
     minner = Minimizer(SingleSineModel, params, fcn_args=(Time, Flux))
-    result = minner.minimize()
+    result = minner.minimize('nelder')
     final = Flux + result.residual
     if ReportFlag:
         report_fit(result)
@@ -87,3 +88,23 @@ def FourierFit(Time,Flux, Threshold=0.3):
     Index  = np.argsort(PowerSpectrum)
     FreqList =  Freq[Index][-5:][::-1]
     return Freq, PowerSpectrum
+
+
+
+x = np.linspace(0,np.pi*20000,1000)
+y = 2*np.sin(0.01*x)  + 0.10*(np.random.random(len(x)))
+#Model,_ = DoubleSineFit(x,y)
+
+Freq, Power = FourierFit(x,y)
+
+
+
+pl.figure()
+pl.subplot()
+pl.plot(Freq, Power,'k.')
+pl.show()
+
+pl.figure()
+pl.plot(x,y,'k.-')
+#pl.plot(x,Model,'r-',lw=2)
+pl.show()

@@ -25,8 +25,8 @@ def fold_data(t,y,period):
   inds = np.array(folded).argsort()
   t_folded = folded[inds]
   y_folded = y[inds]
-
   return t_folded,y_folded
+  
 def MaskTransit():
     pass
 

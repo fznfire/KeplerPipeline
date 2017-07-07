@@ -35,7 +35,7 @@ PeriodFinder = "nf = 1e5 df = 1e-4"
 SpecialNote = "Test Run"
 ApertureSigma = "2.5"
 
-CampaignNumber = [2,1,3]
+CampaignNumber = [9,10]
 CampaignStr = ','.join(str(i) for i in CampaignNumber)
 
 outputpath = "Output/"+RUNID
@@ -54,7 +54,7 @@ RecordFile.close()
 
 #starting to run the campaig
 for Campaign in CampaignNumber:
-
+  print "Running Campaign::", Campaign
   #Header Data for each campaign
   RecordFile = open(outputpath+"/RunSummary.csv","a")
   RecordFile.write('CAMPAIGN,EPIC_ID,RA,DEC,MAG,SNR,PERIOD(days),RUNTIME(s),REDUCED,ERROR \n')
@@ -62,7 +62,8 @@ for Campaign in CampaignNumber:
 
   inputpath = '/Volumes/westep/prajwal/Campaign'
 
-  if Campaign == 9 or Campaign == 10:
+  if Campaign>8:
+
       inputpath = inputpath+str(Campaign)+"/*1_*.fits"
   else:
       inputpath = inputpath+str(Campaign)+"/*.fits"
@@ -73,8 +74,7 @@ for Campaign in CampaignNumber:
   print "_"*75
 
 
-  while i < len(filepaths): #Need to modify this. Here here see this!
-
+  while i < len(filepaths):
     EPIC_ID = re.search('[0-9]{9}',filepaths[i]).group(0) #extracting epic ID number
     print "Currently running EPIC ID::", filepaths[i], "  ",str(i+1), " out of ", str(len(filepaths))
 
@@ -84,22 +84,20 @@ for Campaign in CampaignNumber:
     RunSuccess = "Failed"
     inst = ''
     try:
-      if "spd" in filepaths[i]:
-            chunksize = 3000
-      else:
+        if "spd" in filepaths[i]:
+            chunksize = 1000
+        else:
             chunksize = 100
-      SubFolder = "Campaign"+str(Campaign)
-      run(filepath=filepaths[i],outputpath=outputpath,CNum=Campaign,chunksize=chunksize,method ='SFF',SubFolder=SubFolder)
-      RecordFile = open(outputpath+"/RunSummary.csv","a")
-      RecordFile.write('Success'+','+' ,\n')
-      RecordFile.close()
+        SubFolder = "Campaign"+str(Campaign)
+        run(filepath=filepaths[i],outputpath=outputpath,CNum=Campaign,chunksize=chunksize,method ='SFF',SubFolder=SubFolder)
+        RecordFile = open(outputpath+"/RunSummary.csv","a")
+        RecordFile.write('Success'+','+' ,\n')
+        RecordFile.close()
     except Exception as inst:
-      print str(inst) + "\n"
-      RecordFile = open(outputpath+"/RunSummary.csv","a")
-      RecordFile.write(',,,'+'Failed'+','+str(inst)+'\n')
-      RecordFile.close()
-
-
+        print str(inst) + "\n"
+        RecordFile = open(outputpath+"/RunSummary.csv","a")
+        RecordFile.write(',,,'+'Failed'+','+str(inst)+'\n')
+        RecordFile.close()
     i = i + 1
 
 

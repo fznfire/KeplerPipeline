@@ -23,7 +23,7 @@ import K2SFF
 
 from ExtractFlux import ApertureOnTheRun, PredeterminedAperture
 
-def run(filepath='',outputpath='',CNum=1,chunksize=300,method ='SFF',SubFolder=False):
+def run(filepath='',outputpath='',chunksize=300,method ='SFF',SubFolder=False):
 
   #Initializing the time
   InitialTime = time.time()
@@ -39,40 +39,44 @@ def run(filepath='',outputpath='',CNum=1,chunksize=300,method ='SFF',SubFolder=F
 
   outputfolder = os.path.join(outputpath,str(starname))
 
-  if CNum==9 or CNum==10:
+  #extract cnum from filename
+  CNum = re.search('c[0-9]{2}',filepath).group(0)
+  CNum = int(CNum[1:])
+
+  print "Stage 1"
+  if CNum>8:
 
         #two filenames present for campaign 9 and campaign 10
         AdditionalFilepath = filepath.replace("1_","2_")
 
-        t1,f_t1,Xc1,Yc1 = StandardAperture(filepath,outputpath=outputpath,plot=False,Campaign=CNum)
-        t2,f_t2,Xc2,Yc2 = StandardAperture(AdditionalFilepath,outputpath=outputpath,plot=False,Campaign=CNum)
+        t1,f_t1,Xc1,Yc1 = PredeterminedAperture(filepath,outputpath=outputpath,plot=False,SubFolder=SubFolder)
+        #t1,f_t1,Xc1,Yc1 = [np.array([]),np.array([]),np.array([]),np.array([])]
+        t2,f_t2,Xc2,Yc2 = PredeterminedAperture(AdditionalFilepath,outputpath=outputpath,plot=False,SubFolder=SubFolder)
+        T_Raw = np.concatenate((t1,t2), axis=0)
+        Flux_Raw = np.concatenate((f_t1,f_t2), axis=0)
 
-        T_Raw = np.concatenate(t1,t2)
-        Flux_Raw = np.concatenate(f_t1,f_t2)
-
-        t1,f_t1,Xc1,Yc1 = centroidfit.find_thruster_events(t1,f_t1,Xc1,Yc1,starname=starname,outputpath=outputfolder)
-        t2,f_t2,Xc2,Yc2 = centroidfit.find_thruster_events(t2,f_t2,Xc2,Yc2,starname=starname,outputpath=outputfolder)
+        #t1,f_t1,Xc1,Yc1 = centroidfit.find_thruster_events(t1,f_t1,Xc1,Yc1,starname=starname,outputpath=outputfolder)
+        #t2,f_t2,Xc2,Yc2 = centroidfit.find_thruster_events(t2,f_t2,Xc2,Yc2,starname=starname,outputpath=outputfolder)
 
   else:
         ##### Change this later
         if SubFolder:
-            print "Predetermined Aperture"
-            t,f_t,Xc,Yc = PredeterminedAperture(filepath,outputpath=outputpath,plot=False,Campaign=CNum, SubFolder=SubFolder)
+            t,f_t,Xc,Yc = PredeterminedAperture(filepath,outputpath=outputpath,plot=False, SubFolder=SubFolder)
             T_Raw = np.copy(t)
             Flux_Raw = np.copy(f_t)
         else:
             print "Aperture on the run"
-            t,f_t,Xc,Yc = ApertureOnTheRun(filepath,outputpath=outputpath,plot=False,Campaign=CNum)
+            t,f_t,Xc,Yc = ApertureOnTheRun(filepath,outputpath=outputpath,plot=False, SubFolder= SubFolder)
             T_Raw = np.copy(t)
             Flux_Raw = np.copy(f_t)
 
         #Remove the thruster events #TODO uncomment this later or implement this in K2SFF
         t,f_t,Xc,Yc = centroidfit.find_thruster_events(t,f_t,Xc,Yc,starname=starname,outputpath=outputfolder)
 
-
+  print "Stage 2"
   # now fit a polynomial to the data (inspired by Spitzer data reduction), ignore first data points which are not usually very high-quality
   if method == 'Spitzer':
-        if CNum==9 or CNum==10:
+        if CNum>8:
             [t1,f_t1] = centroidfit.spitzer_fit(t1,f_t1,Xc1,Yc1,starname=starname,outputpath=outputpath,chunksize=chunksize)
             [t2,f_t2] = centroidfit.spitzer_fit(t2,f_t2,Xc2,Yc2,starname=starname,outputpath=outputpath,chunksize=chunksize)
             t = np.append(t1,t2)
@@ -85,7 +89,7 @@ def run(filepath='',outputpath='',CNum=1,chunksize=300,method ='SFF',SubFolder=F
             [t,f_t] = centroidfit.spitzer_fit(t,f_t,Xc,Yc,starname=starname,outputpath=outputpath,chunksize=chunksize)
 
   elif method == 'SFF':
-        if CNum==9 or CNum==10:
+        if CNum>8:
             [t1,f_t1] = centroidfit.sff_fit(t1,f_t1,Xc1,Yc1,starname=starname,outputpath=outputpath,chunksize=chunksize)
             [t2,f_t2] = centroidfit.sff_fit(t2,f_t2,Xc2,Yc2,starname=starname,outputpath=outputpath,chunksize=chunksize)
             t = np.append(t1,t2)
@@ -98,7 +102,7 @@ def run(filepath='',outputpath='',CNum=1,chunksize=300,method ='SFF',SubFolder=F
   else:
         raise Exception('No valid method given.')
 
-
+  print "Stage 3"
   T_Detrended = np.copy(t)
   Flux_Detrended = np.copy(f_t)
   np.savetxt(os.path.join(outputfolder, 'CentroidDetrended.txt'),np.transpose([t,f_t]),header='Time, Flux')
@@ -134,6 +138,7 @@ def run(filepath='',outputpath='',CNum=1,chunksize=300,method ='SFF',SubFolder=F
   np.savetxt(os.path.join(outputfolder, 'PowerSpectrum.txt'),np.transpose([freqlist,powers]),header='Frequencies, Powers')
   periodfinder.make_combo_figure(filepath,t,f_t,period,freqlist,powers,starname=starname,outputpath=outputpath)
 
+  print "Stage 4"
 
   TimeTaken = time.time() - InitialTime
   RecordFile = open(outputpath+"/RunSummary.csv","a")

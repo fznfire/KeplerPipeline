@@ -11,18 +11,26 @@ from FindAperture import FindAperture
 import time
 
 
+import warnings
+warnings.filterwarnings("ignore") #To suppress the warning. Comment this to see the range of warning.
 
-#inputpath = "/home/pniraula/Downloads/PhaseCurveFitsFiles/*.fits" #For testing
-inputpath = '/Volumes/westep/prajwal/Campaign0/*.fits'
+
+CampaignNum = 6
+inputpath = '/Volumes/westep/prajwal/Campaign'+str(CampaignNum)+'/*.fits'
+SubFolder = 'Campaign'+str(CampaignNum)
+
+#inputpath = '/Volumes/westep/prajwal/PhaseCurves/*.fits'
+#SubFolder = 'PhaseCurves'
+
+#inputpath = '/Volumes/westep/prajwal/ActiveStars/*.fits'
+#SubFolder = 'ActiveStars'
+
 filepaths = glob(inputpath)
-print filepaths
+
 outputpath = 'Apertures/'
-SubFolder = "Campaign0"
 outputfolder = outputpath+SubFolder
 
 TestPaths = [outputpath,outputfolder]
-
-
 
 for path in TestPaths:
     if not os.path.exists(path):
@@ -44,19 +52,23 @@ else:
 
 i = 0
 for filepath in filepaths:
+  print filepath
   starname = str(re.search('[0-9]{9}',filepath).group(0))
   print "Currently running EPIC ID::", starname
-
+  CampaignNum = re.search('c[0-9]{2}',filepath).group(0)
+  CampaignNum = int(CampaignNum[1:])
+  print "filepath ", filepath
+  print CampaignNum
   if FirstRun:
       print "Case 1 (First Time)::", starname
       if not("spd" in filepath):
         try:
-          FindAperture(filepath=filepath,outputpath=outputpath,SubFolder=SubFolder)
+            FindAperture(filepath=filepath,outputpath=outputpath,SubFolder=SubFolder, CampaignNum=CampaignNum)
         except Exception as inst:
-          print inst
-          SummaryFile = open(outputpath+SubFolder+".csv",'a')
-          SummaryFile.write(starname+",0,0\n")
-          SummaryFile.close()
+            print inst
+            SummaryFile = open(outputpath+SubFolder+".csv",'a')
+            SummaryFile.write(starname+",0,0\n")
+            SummaryFile.close()
       else:
           print "Skipping spd"
   else:
@@ -67,7 +79,7 @@ for filepath in filepaths:
       if not(Verified) and not("spd" in starname):
           print "Case 2 (Trying Again)::", starname
           try:
-              FindAperture(filepath=filepath,outputpath=outputpath,SubFolder=SubFolder)
+              FindAperture(filepath=filepath,outputpath=outputpath,SubFolder=SubFolder, CampaignNum=CampaignNum)
           except Exception as inst:
               print inst
               SummaryFile = open(outputpath+SubFolder+".csv",'a')

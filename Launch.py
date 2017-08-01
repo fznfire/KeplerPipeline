@@ -19,13 +19,13 @@ warnings.filterwarnings("ignore") #To suppress the warning. Comment this to see 
 #outputpath = 'Campaign'+str(Campaign)
 
 
-inputpath = '/Volumes/westep/prajwal/ActiveStars/*.fits' #Campaign'+str(10)+'/*.fits'
-SubFolder = 'ActiveStars'
-outputpath = 'ActiveStars'
+#inputpath = '/Volumes/westep/prajwal/ActiveStars/*.fits' #Campaign'+str(10)+'/*.fits'
+#SubFolder = 'ActiveStars'
+#outputpath = 'ActiveStars'
 
-#inputpath = '/Volumes/westep/prajwal/PhaseCurves/*.fits' #Campaign'+str(10)+'/*.fits'
-#SubFolder = 'PhaseCurves'
-#outputpath = 'PhaseCurves'
+inputpath = '/Volumes/westep/prajwal/PhaseCurves/*.fits' #Campaign'+str(10)+'/*.fits'
+SubFolder = 'PhaseCurves'
+outputpath = 'PhaseCurves'
 
 filepaths = glob(inputpath)
 
@@ -33,16 +33,12 @@ filepaths = glob(inputpath)
 i = 0
 exc_list = []
 
-while i < len(filepaths):
+while i<len(filepaths):
  EPIC_ID = re.search('[0-9]{9}',filepaths[i]).group(0)
  print "Currently running EPIC ID::", EPIC_ID
  try:
-    #Don't run the spd for now
-    if "spd" in filepaths[i]:
-        pass
-    else:
-        chunksize = 100
-        run(filepath=filepaths[i],outputpath=outputpath,chunksize=100,method ='SFF',SubFolder=SubFolder)
+    chunksize = 300
+    run(filepath=filepaths[i],outputpath=outputpath,chunksize=chunksize,method ='SFF',SubFolder=SubFolder)
  except Exception as inst:
     print inst
     exc_list.append(inst)

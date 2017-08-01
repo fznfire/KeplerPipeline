@@ -21,7 +21,7 @@ import periodfinder
 import re
 import K2SFF
 
-from ExtractFlux import ApertureOnTheRun, PredeterminedAperture
+from ExtractFlux import PredeterminedAperture
 
 def run(filepath='',outputpath='',chunksize=300,method ='SFF',SubFolder=False):
 
@@ -39,11 +39,10 @@ def run(filepath='',outputpath='',chunksize=300,method ='SFF',SubFolder=False):
 
   outputfolder = os.path.join(outputpath,str(starname))
 
-  #extract cnum from filename
-  CNum = re.search('c[0-9]{2}',filepath).group(0)
-  CNum = int(CNum[1:])
+  #extract campaign number from filename
+  CmpStr = re.search('c[0-9]{2}',filepath).group(0)
+  CNum = int(CmpStr[1:])
 
-  print "Stage 1"
   if CNum>8:
 
         #two filenames present for campaign 9 and campaign 10
@@ -71,11 +70,11 @@ def run(filepath='',outputpath='',chunksize=300,method ='SFF',SubFolder=False):
             Flux_Raw = np.copy(f_t)
 
         #Remove the thruster events #TODO uncomment this later or implement this in K2SFF
-        t,f_t,Xc,Yc = centroidfit.find_thruster_events(t,f_t,Xc,Yc,starname=starname,outputpath=outputfolder)
+        #t,f_t,Xc,Yc = centroidfit.find_thruster_events(t,f_t,Xc,Yc,starname=starname,outputpath=outputfolder)
 
-  print "Stage 2"
   # now fit a polynomial to the data (inspired by Spitzer data reduction), ignore first data points which are not usually very high-quality
   if method == 'Spitzer':
+        print "Running Spitzer"
         if CNum>8:
             [t1,f_t1] = centroidfit.spitzer_fit(t1,f_t1,Xc1,Yc1,starname=starname,outputpath=outputpath,chunksize=chunksize)
             [t2,f_t2] = centroidfit.spitzer_fit(t2,f_t2,Xc2,Yc2,starname=starname,outputpath=outputpath,chunksize=chunksize)
@@ -85,10 +84,10 @@ def run(filepath='',outputpath='',chunksize=300,method ='SFF',SubFolder=False):
         #elif CNum==1:
             #[t,f_t] = centroidfit.spitzer_fit(t[90:],f_t[90:],Xc[90:],Yc[90:],starname=starname,outputpath=outputpath,chunksize=chunksize)
         else:
-            print "Running Spitzer method"
             [t,f_t] = centroidfit.spitzer_fit(t,f_t,Xc,Yc,starname=starname,outputpath=outputpath,chunksize=chunksize)
 
   elif method == 'SFF':
+        print "Running SFF"
         if CNum>8:
             [t1,f_t1] = centroidfit.sff_fit(t1,f_t1,Xc1,Yc1,starname=starname,outputpath=outputpath,chunksize=chunksize)
             [t2,f_t2] = centroidfit.sff_fit(t2,f_t2,Xc2,Yc2,starname=starname,outputpath=outputpath,chunksize=chunksize)
@@ -97,15 +96,17 @@ def run(filepath='',outputpath='',chunksize=300,method ='SFF',SubFolder=False):
         #elif CNum==1:
             #[t,f_t] = centroidfit.sff_fit(t[90:],f_t[90:],Xc[90:],Yc[90:],starname=starname,outputpath=outputpath,chunksize=chunksize)
         else:
-            [t,f_t] = centroidfit.sff_fit(t,f_t,Xc,Yc,starname=starname,outputpath=outputpath,chunksize=chunksize)
-            #[t,f_t] = K2SFF.sff_fit(t,f_t,Xc,Yc,starname=starname,outputpath=outputpath,chunksize=chunksize)
+            #Girish method
+            #[t,f_t] = centroidfit.sff_fit(t,f_t,Xc,Yc,starname=starname,outputpath=outputpath,chunksize=chunksize)
+
+            #My method
+            [t,f_t] = K2SFF.K2SFF_VJ14(t,f_t,Xc,Yc,CmpStr, starname=starname,outputpath=outputpath,chunksize=chunksize)
   else:
         raise Exception('No valid method given.')
 
-  print "Stage 3"
+
   T_Detrended = np.copy(t)
   Flux_Detrended = np.copy(f_t)
-  np.savetxt(os.path.join(outputfolder, 'CentroidDetrended.txt'),np.transpose([t,f_t]),header='Time, Flux')
   [t,f_t] = centroidfit.clean_data(t,f_t) # do a bit of cleaning
   np.savetxt(os.path.join(outputfolder, 'Cleaned.txt'),np.transpose([t,f_t]),header='Time, Flux')
 
@@ -131,19 +132,21 @@ def run(filepath='',outputpath='',chunksize=300,method ='SFF',SubFolder=False):
 
   pl.suptitle(starname)
   pl.savefig(outputfolder+"/DiagnosticPlot.png")
-  pl.close()
+  pl.close('all')
+
   del T_Raw, T_Detrended, T_Cleaned, Flux_Raw, Flux_Detrended, Flux_Cleaned
 
-  folded,f_t_folded,period,freqlist,powers = periodfinder.get_period(t,f_t,outputpath=outputpath,starname=starname,get_mandelagolmodel=False)
+  folded_date,f_t_folded,period,freqlist,powers = periodfinder.get_period(t,f_t,outputpath=outputpath,starname=starname)
   np.savetxt(os.path.join(outputfolder, 'PowerSpectrum.txt'),np.transpose([freqlist,powers]),header='Frequencies, Powers')
-  periodfinder.make_combo_figure(filepath,t,f_t,period,freqlist,powers,starname=starname,outputpath=outputpath)
+  periodfinder.make_combo_figure(filepath, t,f_t,period,freqlist,powers,starname= starname,outputpath=outputpath)
 
-  print "Stage 4"
+
 
   TimeTaken = time.time() - InitialTime
   RecordFile = open(outputpath+"/RunSummary.csv","a")
   TimeTakenStr = "%.2f" %TimeTaken
   print "Time Taken::",TimeTakenStr
-  RecordFile.write(TimeTakenStr+',')
+  RecordFile
+  RecordFile.write(TimeTakenStr+'\n')
   RecordFile.close()
   pl.close('all')

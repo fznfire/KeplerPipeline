@@ -12,6 +12,7 @@ import os
 import matplotlib.pyplot as pl
 import numpy as np
 
+from scipy.interpolate import LSQUnivariateSpline as spline
 from auxiliaries import *
 
 import bls
@@ -27,9 +28,9 @@ def fold_data(t,y,period):
   return t_folded,y_folded
 
 
-def get_period(t,f_t,get_mandelagolmodel=True,outputpath='',starname=''):
+def get_period(t,f_t,outputpath='',starname=''):
 
-  # here we use a BLS algorithm to create a periodogram and find the best periods. The BLS is implemented in Python by Ruth Angus and Dan Foreman-Macey
+  # here we use a BLS algorithm to create a periodogram and find the best periods. The BLS is implemented in Python by Ruth Angus and Dan Foreman-Mackey
 
   outputfolder = os.path.join(outputpath,str(starname))
   fmin = 2.0/((t[len(t)-1]-t[0])) # minimum frequency. we can't find anything longer than 90 days obviously
@@ -66,37 +67,11 @@ def get_period(t,f_t,get_mandelagolmodel=True,outputpath='',starname=''):
   pl.savefig(os.path.join(outputfolder, 'PhaseFolded.png'))
   pl.close('all')
 
-  if get_mandelagolmodel:
-    # this is not a core part of the module and uses a transit model by Mandel & Agol, implemented in Python by Ian Crossfield.
-
-    #[T0,b,R_over_a,Rp_over_Rstar,flux_star,gamma1,gamma2]
-    transit_params = np.array([4.11176,0.9,0.104,np.sqrt(0.0036),1.,0.2,0.2])
-    import model_transits
-    times_full = np.linspace(0.,period,10000)
-    model = model_transits.modeltransit(transit_params,model_transits.occultquad,period,times_full)
-
-    pl.figure('Transit model')
-    pl.scatter((folded-transit_params[0])*24.,f_t_folded+1.,color='black',label='K2 photometry',s=10.)
-
-    pl.plot((times_full-transit_params[0])*24.,model,color='grey',lw=4,label='Transit model')
-    pl.xlabel('Time from mid-transit [hr]',fontsize=17)
-    pl.ylabel('Relative flux',fontsize=17)
-    legend = pl.legend(loc='upper center',numpoints=1,scatterpoints=1,fontsize=15,prop={'size':15},title='EPIC 205071984')
-    pl.tick_params(labelsize=17)
-    pl.tick_params(axis='both', which='major', width=1.5)
-    pl.tight_layout()
-    pl.setp(legend.get_title(),fontsize=17)
-    pl.savefig(os.path.join(outputfolder, 'MandelAlgol' + 'star_' + str(starname) +str(period) + '.png'))
-    pl.close('all')
-
-
 
   # unravel again
   n_start = int(np.round(t[0] / period))
   n_end = np.round(t[-1] / period) + 1
   i = n_start
-  pl.figure()
-  pl.plot(t_orig,f_t,'*')
 
   t_unravel = []
   f_t_unravel = []
@@ -107,13 +82,15 @@ def get_period(t,f_t,get_mandelagolmodel=True,outputpath='',starname=''):
     pl.plot(t_unravel[i],f_t_unravel[i],color='black',lw='1.5')
     i = i + 1
 
-  print 'best period is '
-  print period
-
+  if abs(period-0.24)<0.01:
+    freqlist,powers = maskout_freqs(freqlist,powers,freq=0.245) # spacecraft freqs
+    Location = np.where(powers==max(powers))
+    period = freqlist[Location[0]][0]
+  print "The best period is: ", period
   return folded,f_t_folded,period,freqlist,powers
 
 
-def maskout_freqs(freqs,power,freq=float,lim=0.05):
+def maskout_freqs(freqs,power,freq=float,lim=0.005):
   # little definition to remove certain frequencies and their nearby surroundings from an array, so that other frequencies can be found which are truly different
   freqs = np.array(freqs)
   power = np.array(power)
@@ -124,17 +101,34 @@ def maskout_freqs(freqs,power,freq=float,lim=0.05):
   return newfreqs,newpower
 
 
-def make_combo_figure(filepath,t,f_t,period,freqs,power,starname='',outputpath=''):
+def make_combo_figure(filepath, t,f_t,period,freqs,power,starname='',outputpath=''):
   #
   # This definition can be used to make a single overview figure, showing the lightcurve + a zoom, a BLS periodogram, and folded (+ smoothed) light curves based on the best frequencies and their multiples
   # This figure is used to eyeball good candidates
   #
-  print "Making combo figure..."
-
+  outputfolder = os.path.join(outputpath,str(starname))
   t = np.array(t)
   f_t = np.array(f_t)
   freqs = np.array(freqs)
   power = np.array(power)
+
+  TempFreqs = np.copy(freqs)
+  TempPower = np.copy(power)
+
+  ChunkSize= 5000
+  for i in range(3):
+       N = int(len(TempFreqs)/ChunkSize)
+       Location = [int((i+0.5)*ChunkSize) for i in range(N)]
+       knots = [TempFreqs[i] for i in Location]
+       spl_power = spline(TempFreqs, TempPower, knots[1:-1], k=2)
+       PowerPred = spl_power(TempFreqs)
+       Residual = np.abs(TempPower - PowerPred)
+       Indices = Residual<2.0*np.std(Residual)
+       TempFreqs = TempFreqs[Indices]
+       TempPower = TempPower[Indices]
+
+  PowerPred = spl_power(freqs)
+  power = power/PowerPred
 
   pl.figure('Combo figure',figsize=(35.,20.))
   ax1 = pl.subplot2grid((6,3), (0,0), colspan=3,rowspan=2)
@@ -149,7 +143,7 @@ def make_combo_figure(filepath,t,f_t,period,freqs,power,starname='',outputpath='
 
   sn = np.max(power)/np.median(power)
 
-  if sn > 4.:
+  if sn > 3.:
     titlecolor = 'green'
     outputfigfolder = os.path.join(outputpath,'figs/high_sn/')
   else:
@@ -206,6 +200,7 @@ def make_combo_figure(filepath,t,f_t,period,freqs,power,starname='',outputpath='
   newfreqs,newpower = maskout_freqs(newfreqs,newpower,freq=period/3.)
 
   newfreqs,newpower = maskout_freqs(newfreqs,newpower,freq=0.25) # spacecraft freqs
+  newfreqs,newpower = maskout_freqs(newfreqs,newpower,freq=0.24) # spacecraft freqs
   newfreqs,newpower = maskout_freqs(newfreqs,newpower,freq=0.5) # spacecraft freqs
   newfreqs,newpower = maskout_freqs(newfreqs,newpower,freq=0.125) # spacecraft freqs
 
@@ -265,3 +260,5 @@ def make_combo_figure(filepath,t,f_t,period,freqs,power,starname='',outputpath='
 
   #Saving the figure
   pl.savefig(os.path.join(outputfigfolder, 'combo_' + 'star_' + str(starname) + '.png'),figsize=(10.,20.))
+  pl.savefig(os.path.join(outputfolder, 'BLS_Search.png'),figsize=(10.,20.))
+  pl.close('all')
